@@ -6,11 +6,12 @@ import { AtlasQuiz } from './components/AtlasQuiz'
 import { AIAnalyzer } from './components/AIAnalyzer'
 import { MLCuradoria } from './components/MLCuradoria'
 import { OtoscopyInstructionsModal } from './components/OtoscopyInstructionsModal'
+import { CommunityDonation } from './components/CommunityDonation'
 import { AtlasItem } from './data/mockData'
 
 function App() {
   const [selectedItem, setSelectedItem] = useState<AtlasItem | null>(null)
-  const [viewMode, setViewMode] = useState<'atlas' | 'quiz' | 'ia' | 'curadoria'>('atlas')
+  const [viewMode, setViewMode] = useState<'atlas' | 'quiz' | 'ia' | 'curadoria' | 'donation'>('atlas')
   const [showInstructions, setShowInstructions] = useState(false)
 
   return (
@@ -33,6 +34,12 @@ function App() {
               className={`px-3 py-2 rounded-lg text-sm md:text-base font-medium transition-colors ${viewMode === 'quiz' ? 'bg-white text-brand-600 shadow-sm' : 'text-brand-100 hover:bg-brand-500'}`}
             >
               Quiz Case
+            </button>
+            <button 
+              onClick={() => setViewMode('donation')}
+              className={`px-3 py-2 rounded-lg text-sm md:text-base font-medium transition-colors ${viewMode === 'donation' ? 'bg-white text-brand-600 shadow-sm' : 'text-brand-100 hover:bg-brand-500'}`}
+            >
+              Colaborar
             </button>
             <button 
               onClick={() => setViewMode('ia')}
@@ -88,6 +95,11 @@ function App() {
         {viewMode === 'quiz' && <AtlasQuiz />}
         {viewMode === 'ia' && <AIAnalyzer />}
         {viewMode === 'curadoria' && <MLCuradoria />}
+        {viewMode === 'donation' && (
+          <div className="w-full flex items-center justify-center mt-6">
+            <CommunityDonation />
+          </div>
+        )}
       </main>
 
       {showInstructions && (

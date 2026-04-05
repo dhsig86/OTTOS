@@ -1,9 +1,11 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastai.vision.all import load_learner, PILImage
 import psycopg2
 import os
 import pathlib
+import cloudinary
+import cloudinary.uploader
 
 def get_database_url():
     env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
@@ -257,3 +259,59 @@ async def approve_image(payload: dict):
             
     except Exception as e:
         return {"error": str(e)}
+
+@app.post("/api/curadoria/donate")
+async def donate_image(
+    file: UploadFile = File(...),
+    diagnostic: str = Form(...),
+    clinical_case: str = Form("")
+):
+    env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+    c_url = os.environ.get("CLOUDINARY_URL")
+    if not c_url and os.path.exists(env_path):
+        with open(env_path, "r") as f:
+            for line in f:
+                if line.startswith("CLOUDINARY_URL="):
+                    c_url = line.strip().split("=", 1)[1]
+                    break
+    
+    if c_url:
+        os.environ["CLOUDINARY_URL"] = c_url
+        cloudinary.config(cloudinary_url=c_url)
+        
+    db_url = get_database_url()
+    
+    if not c_url or not db_url:
+        return {"error": "Credenciais do Cloudinary ou do Banco de Dados não configuradas no Servidor."}
+        
+    try:
+        contents = await file.read()
+        
+        upload_result = cloudinary.uploader.upload(
+            contents,
+            folder="otoscopia_colaboracao_externa",
+            resource_type="image"
+        )
+        
+        secure_url = upload_result.get("secure_url")
+        if not secure_url:
+            return {"error": "Ocorreu um erro interno no upload para o Cloudinary"}
+            
+        case_info = f"[DOAÇÃO COMUNITÁRIA] {clinical_case}".strip()
+        
+        conn = psycopg2.connect(db_url, sslmode='require')
+        cur = conn.cursor()
+        
+        insert_query = """
+        INSERT INTO feedback (feedback_image_url, correct_diagnosis, diagnosis_correct, predicted_classes, clinical_case)
+        VALUES (%s, %s, %s, %s, %s)
+        """
+        cur.execute(insert_query, (secure_url, diagnostic, "donation", "", case_info))
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return {"success": True, "url": secure_url, "message": "Doação recebida na nuvem com sucesso!"}
+        
+    except Exception as e:
+        return {"error": f"Erro interno da rota Donate: {str(e)}"}
