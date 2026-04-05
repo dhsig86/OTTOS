@@ -6,8 +6,6 @@
 
 // O novo padrão React Vite para Variaveis de Ambiente é usar import.meta.env
 const HEROKU_BACKEND_URL = import.meta.env.VITE_HEROKU_BACKEND_URL;
-// Cloudinary Name se mantem opcionalmente para usos diretos
-const CLOUDINARY_CLOUD_NAME = 'dbddddam8'; // Extrato do server.js legado
 
 export interface PredictionResult {
   class: string;
