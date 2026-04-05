@@ -7,3 +7,4 @@ torchvision
 fastai
 requests
 psycopg2-binary
+ipython
