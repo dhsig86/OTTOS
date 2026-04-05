@@ -1,0 +1,16 @@
+# Configurações do React
+node_modules
+dist
+.env
+
+# Lixo de Ambiente Virtual ML e Backup de Banco de Dados
+ml_pipeline/venv
+__pycache__
+latest.dump
+*.sql
+*.dump
+
+# Dados Sensíveis/Maciços do Heroku e do Computador Local 
+../OTTO_ML_Dataset
+../APPROTTO
+*.log

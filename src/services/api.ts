@@ -1,0 +1,85 @@
+/**
+ * Serviço de Integração com o Backend OTTO e Legado (OtoscopIA)
+ * O ML roda isolado na fábrica (ml_pipeline), mas este frontend 
+ * precisa se comunicar com o banco de dados e com a IA.
+ */
+
+// O novo padrão React Vite para Variaveis de Ambiente é usar import.meta.env
+const HEROKU_BACKEND_URL = import.meta.env.VITE_HEROKU_BACKEND_URL;
+// Cloudinary Name se mantem opcionalmente para usos diretos
+const CLOUDINARY_CLOUD_NAME = 'dbddddam8'; // Extrato do server.js legado
+
+export interface PredictionResult {
+  class: string;
+  confidence: number;
+}
+
+// 1. Predição de IA (Integração Direta com Servidor PyTorch / FastAPI)
+export async function predictOtoscopyImage(file: File): Promise<PredictionResult[]> {
+  console.log('Enviando imagem para análise da IA REAL via FastAPI...', file);
+  
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  // Usamos localhost em dev, mas na nuvem precisaremos hospedar o backend Python
+  const aiEndpoint = import.meta.env.VITE_AI_API_URL || 'http://127.0.0.1:8000/api/predict';
+  
+  try {
+    const response = await fetch(aiEndpoint, {
+      method: 'POST',
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    if (data.error) {
+       throw new Error(`Erro da IA: ${data.error}`);
+    }
+    return data as PredictionResult[];
+  } catch (error) {
+    console.error("Erro ao chamar a API do OTOSCOP-IA:", error);
+    alert(`Atenção: Não foi possível obter o diagnóstico. Detalhes: ${error}`);
+    throw error;
+  }
+}
+
+// 2. Envio de Feedback para Re-treinamento (Heroku -> Cloudinary + Postgres)
+export async function sendFeedbackToLegacySystem(
+  feedbackImage: File,
+  correctDiagnosis: string,
+  diagnosisCorrect: string, // "yes" ou "no"
+  predictedClasses: string,
+  differentialDiagnosis: string,
+  clinicalCase: string
+): Promise<boolean> {
+  console.log(`Enviando imagem ${feedbackImage.name} para ${HEROKU_BACKEND_URL}`);
+  
+  const formData = new FormData();
+  formData.append('feedbackImage', feedbackImage); // Arquivo (File/Blob)
+  formData.append('correctDiagnosis', correctDiagnosis);
+  formData.append('diagnosisCorrect', diagnosisCorrect);
+  formData.append('predictedClasses', predictedClasses);
+  formData.append('differentialDiagnosis', differentialDiagnosis);
+  formData.append('clinicalCase', clinicalCase);
+
+  try {
+    // ATENÇÃO: Esta chamada agora é REAL e espelha exatamente a função original do seu OtoscopIA.
+    // Gatilho ativado! Enviando imagem p/ Cloudinary e texto p/ Postgres!
+    const response = await fetch(HEROKU_BACKEND_URL, {
+      method: 'POST',
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Falha no Heroku. HTTP: ${response.status}`);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Erro de conexão com o backend Heroku', error);
+    return false;
+  }
+}
