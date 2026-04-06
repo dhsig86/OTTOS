@@ -39,19 +39,33 @@ class FixedConcatPool(nn.Module):
 learn.model[1][0] = FixedConcatPool()
 pytorch_model = learn.model.eval()
 
+import shutil
+
+# Precisamos usar EXATAMENTE o mesmo nome do arquivo final ("otto_model.onnx")
+# na raiz para que o onnxscript (PyTorch) não vincule a um nome temporário quebrado.
+temp_onnx = "otto_model.onnx"
+
 print("4. Iniciando conversão para ONNX Runtime Graph (Com Bypass)...")
 dummy_input = torch.randn(1, 3, 224, 224)
 
 torch.onnx.export(
     pytorch_model,
     dummy_input,
-    onnx_path,
+    temp_onnx,
     export_params=True,
     opset_version=14,
     do_constant_folding=True,
     input_names=['input'],
     output_names=['output']
 )
+
+# Mover para a pasta correta
+if os.path.exists(temp_onnx):
+    shutil.move(temp_onnx, onnx_path)
+    
+# Se o onnxscript gerar um arquivo de pesos externo (.data), movemos também
+if os.path.exists(temp_onnx + ".data"):
+    shutil.move(temp_onnx + ".data", onnx_path + ".data")
 
 print(f"\n[SUCESSO] O Cérebro neural desceu com sucesso para: {onnx_path}")
 print(f"O tamanho original (pkl) no disco caiu drasticamente, pronto para nuvens apertadas.")
