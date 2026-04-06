@@ -19,6 +19,27 @@ def get_database_url():
                     return line.strip().split("=", 1)[1]
     return os.environ.get("DATABASE_URL")
 
+def setup_cloudinary():
+    env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+    c_url = os.environ.get("CLOUDINARY_URL")
+    if not c_url and os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("CLOUDINARY_URL="):
+                    c_url = line.strip().split("=", 1)[1]
+                    break
+    if c_url:
+        os.environ["CLOUDINARY_URL"] = c_url
+        try:
+            url_no_prefix = c_url.replace("cloudinary://", "")
+            api_key, rest = url_no_prefix.split(":", 1)
+            api_secret, cloud_name = rest.split("@", 1)
+            cloudinary.config(cloud_name=cloud_name, api_key=api_key, api_secret=api_secret)
+            return True
+        except Exception:
+            return False
+    return False
+
 app = FastAPI(title="OTOSCOP-IA Engine", description="FastAPI Backend for ONNX Runtime")
 
 # Permitir o Frontend React (localhost:5173 e Prod)
@@ -287,23 +308,13 @@ async def donate_image(
     diagnostic: str = Form(...),
     clinical_case: str = Form("")
 ):
-    env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
-    c_url = os.environ.get("CLOUDINARY_URL")
-    if not c_url and os.path.exists(env_path):
-        with open(env_path, "r") as f:
-            for line in f:
-                if line.startswith("CLOUDINARY_URL="):
-                    c_url = line.strip().split("=", 1)[1]
-                    break
-    
-    if c_url:
-        os.environ["CLOUDINARY_URL"] = c_url
-        cloudinary.config(cloudinary_url=c_url)
+    if not setup_cloudinary():
+        return {"error": "Credenciais do Cloudinary malformadas."}
         
     db_url = get_database_url()
     
-    if not c_url or not db_url:
-        return {"error": "Credenciais do Cloudinary ou do Banco de Dados não configuradas no Servidor."}
+    if not db_url:
+        return {"error": "Banco de Dados não configurado no Servidor."}
         
     try:
         contents = await file.read()
@@ -350,23 +361,13 @@ async def feedback_image(
     Ponto de entrada nativo central pra as predições do OTOSCOP-IA! 
     Substitui integralmente o antigo Backend do Heroku.
     """
-    env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
-    c_url = os.environ.get("CLOUDINARY_URL")
-    if not c_url and os.path.exists(env_path):
-        with open(env_path, "r") as f:
-            for line in f:
-                if line.startswith("CLOUDINARY_URL="):
-                    c_url = line.strip().split("=", 1)[1]
-                    break
-    
-    if c_url:
-        os.environ["CLOUDINARY_URL"] = c_url
-        cloudinary.config(cloudinary_url=c_url)
+    if not setup_cloudinary():
+        return {"error": "Servidor não possui as variáveis Cloudinary ativadas ou estão mal formatadas."}
         
     db_url = get_database_url()
     
-    if not c_url or not db_url:
-        return {"error": "Servidor não possui as variáveis Cloudinary ou NeonDB ativadas."}
+    if not db_url:
+        return {"error": "Servidor não possui NeonDB ativadas."}
         
     try:
         contents = await feedbackImage.read()
