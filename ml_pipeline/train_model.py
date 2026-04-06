@@ -19,14 +19,14 @@ def train_otto_model(samples_dir, output_dir, epochs=5):
     path = Path(samples_dir)
     print(f"[{datetime.now()}] Iniciando leitura do Dataset em: {path}")
     
-    # 1. Configurar Carregador de Dados (DataBlock)
-    # Aqui fazemos o "Data Augmentation", mas honrando a pasta PROTTOAUGMENTED do médico
+    # Data Augmentation Clinico: Otoscopio roda 360 no canal, brilho varia com cerume.
+    # mult=2 aumenta a multiplicidade, max_rotate=360 faz giro livre.
     dls = ImageDataLoaders.from_folder(
         path, 
         train='TRAIN',
         valid='VALIDATION', # Usa estritamente a separação das pastas do especialista
         item_tfms=Resize(460), 
-        batch_tfms=aug_transforms(size=224, min_scale=0.75), 
+        batch_tfms=aug_transforms(size=224, min_scale=0.75, max_rotate=360.0, max_lighting=0.3, max_zoom=1.2, p_affine=0.75), 
         num_workers=0, # CRÍTICO PARA NÃO CONGELAR NO WINDOWS
         bs=16 # Batch size seguro
     )

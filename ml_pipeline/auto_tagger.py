@@ -25,15 +25,22 @@ def get_cloudinary_config():
     env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
     c_url = os.environ.get("CLOUDINARY_URL")
     if not c_url and os.path.exists(env_path):
-        with open(env_path, "r") as f:
+        with open(env_path, "r", encoding="utf-8") as f:
             for line in f:
                 if line.startswith("CLOUDINARY_URL="):
                     c_url = line.strip().split("=", 1)[1]
                     break
     if c_url:
         os.environ["CLOUDINARY_URL"] = c_url
-        cloudinary.config(cloudinary_url=c_url)
-    return c_url
+        try:
+            url_no_prefix = c_url.replace("cloudinary://", "")
+            api_key, rest = url_no_prefix.split(":", 1)
+            api_secret, cloud_name = rest.split("@", 1)
+            cloudinary.config(cloud_name=cloud_name, api_key=api_key, api_secret=api_secret)
+            return True
+        except Exception:
+            return False
+    return False
 
 def main():
     print("=======================================")
@@ -124,10 +131,11 @@ def main():
             print(f"[{f.name}] Erro Cloudinary: {e}")
             continue
         
+        import json
         cur.execute("""
             INSERT INTO feedback (feedback_image_url, correct_diagnosis, diagnosis_correct, predicted_classes, clinical_case)
             VALUES (%s, %s, %s, %s, %s)
-        """, (secure_url, None, None, top_preds_str, "Pré-classificado pelo Lote 2026"))
+        """, (secure_url, None, None, json.dumps(top_preds_str), "Pré-classificado pelo Lote 2026"))
         conn.commit() # Commit iterativo para não perder avanço
         
         sucesso_count += 1
