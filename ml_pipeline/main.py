@@ -302,9 +302,11 @@ async def approve_image(payload: dict):
     except Exception as e:
         return {"error": str(e)}
 
+from typing import List
+
 @app.post("/api/curadoria/donate")
 async def donate_image(
-    file: UploadFile = File(...),
+    files: List[UploadFile] = File(...),
     diagnostic: str = Form(...),
     clinical_case: str = Form("")
 ):
@@ -317,36 +319,38 @@ async def donate_image(
         return {"error": "Banco de Dados não configurado no Servidor."}
         
     try:
-        contents = await file.read()
-        
-        upload_result = cloudinary.uploader.upload(
-            contents,
-            folder="otoscopia_colaboracao_externa",
-            resource_type="image"
-        )
-        
-        secure_url = upload_result.get("secure_url")
-        if not secure_url:
-            return {"error": "Ocorreu um erro interno no upload para o Cloudinary"}
-            
-        case_info = f"[DOAÇÃO COMUNITÁRIA] {clinical_case}".strip()
-        
         conn = psycopg2.connect(db_url, sslmode='require')
         cur = conn.cursor()
-        
         import json
         
-        insert_query = """
-        INSERT INTO feedback (feedback_image_url, correct_diagnosis, diagnosis_correct, predicted_classes, clinical_case)
-        VALUES (%s, %s, %s, %s, %s)
-        """
-        # diagnosis_correct is BOOLEAN in NeonDB. Postgres casts "yes" or True, but crashes on "donation"!
-        cur.execute(insert_query, (secure_url, diagnostic, True, json.dumps(""), case_info))
+        uploaded_urls = []
+        for file in files:
+            contents = await file.read()
+            
+            upload_result = cloudinary.uploader.upload(
+                contents,
+                folder="otoscopia_colaboracao_externa",
+                resource_type="image"
+            )
+            
+            secure_url = upload_result.get("secure_url")
+            if not secure_url:
+                continue
+                
+            uploaded_urls.append(secure_url)
+            case_info = f"[DOAÇÃO COMUNITÁRIA LOTE] {clinical_case}".strip()
+            
+            insert_query = """
+            INSERT INTO feedback (feedback_image_url, correct_diagnosis, diagnosis_correct, predicted_classes, clinical_case)
+            VALUES (%s, %s, %s, %s, %s)
+            """
+            cur.execute(insert_query, (secure_url, diagnostic, True, json.dumps(""), case_info))
+            
         conn.commit()
         cur.close()
         conn.close()
         
-        return {"success": True, "url": secure_url, "message": "Doação recebida na nuvem com sucesso!"}
+        return {"success": True, "urls": uploaded_urls, "message": f"{len(uploaded_urls)} Imagens recebidas na nuvem com sucesso!"}
         
     except Exception as e:
         return {"error": f"Erro interno da rota Donate: {str(e)}"}
