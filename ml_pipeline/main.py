@@ -334,11 +334,13 @@ async def donate_image(
         conn = psycopg2.connect(db_url, sslmode='require')
         cur = conn.cursor()
         
+        import json
+        
         insert_query = """
         INSERT INTO feedback (feedback_image_url, correct_diagnosis, diagnosis_correct, predicted_classes, clinical_case)
         VALUES (%s, %s, %s, %s, %s)
         """
-        cur.execute(insert_query, (secure_url, diagnostic, "donation", "", case_info))
+        cur.execute(insert_query, (secure_url, diagnostic, "donation", json.dumps(""), case_info))
         conn.commit()
         cur.close()
         conn.close()
@@ -387,6 +389,8 @@ async def feedback_image(
         conn = psycopg2.connect(db_url, sslmode='require')
         cur = conn.cursor()
         
+        import json
+        
         insert_query = """
         INSERT INTO feedback (feedback_image_url, correct_diagnosis, diagnosis_correct, predicted_classes, clinical_case)
         VALUES (%s, %s, %s, %s, %s)
@@ -397,7 +401,7 @@ async def feedback_image(
         if differentialDiagnosis:
             final_predictions += f" | {differentialDiagnosis}"
             
-        cur.execute(insert_query, (secure_url, correctDiagnosis, diagnosisCorrect, final_predictions, clinicalCase))
+        cur.execute(insert_query, (secure_url, correctDiagnosis, diagnosisCorrect, json.dumps(final_predictions), clinicalCase))
         conn.commit()
         cur.close()
         conn.close()
