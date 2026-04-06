@@ -216,7 +216,7 @@ export function MLCuradoria() {
                     >
                       <option value="" disabled hidden>Selecione a Classe...</option>
                       {oficialClasses.map(cls => (
-                        <option key={cls} value={cls}>{cls}</option>
+                        <option key={cls} value={cls.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}>{cls.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>
                       ))}
                       <option value="NOVA_CLASSE" className="font-extrabold text-brand-600">+ NOVA CLASSE/SUBCLASSE</option>
                     </select>
