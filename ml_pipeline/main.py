@@ -340,7 +340,8 @@ async def donate_image(
         INSERT INTO feedback (feedback_image_url, correct_diagnosis, diagnosis_correct, predicted_classes, clinical_case)
         VALUES (%s, %s, %s, %s, %s)
         """
-        cur.execute(insert_query, (secure_url, diagnostic, "donation", json.dumps(""), case_info))
+        # diagnosis_correct is BOOLEAN in NeonDB. Postgres casts "yes" or True, but crashes on "donation"!
+        cur.execute(insert_query, (secure_url, diagnostic, True, json.dumps(""), case_info))
         conn.commit()
         cur.close()
         conn.close()
