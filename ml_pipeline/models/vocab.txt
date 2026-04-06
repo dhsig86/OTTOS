@@ -4,3 +4,5 @@ obstrucao
 otite_externa_aguda
 otite_media_aguda
 otite_media_cronica
+otite_media_serosa
+tubo_de_ventilacao
