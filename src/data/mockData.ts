@@ -93,6 +93,20 @@ export const atlasData: AtlasItem[] = [
       '/images/atlas_v3/Otite_M_dia_Cr_nica___Simples_2.jpg',
       '/images/atlas_v3/Otite_M_dia_Cr_nica___Simples_3.jpg'
     ],
+    hotspots: [
+      [
+        {
+          id: "spot_1775470520331",
+          label: "Perfuração Timpânica",
+          path: "M 254,615 L 254,702 L 313,718 L 355,676 L 347,640 L 311,607 L 256,607 Z"
+        },
+        {
+          id: "spot_1775470555471",
+          label: "Secreção Bolhosa/Otorréia da Orelha média",
+          path: "M 137,789 L 226,846 L 301,850 L 372,931 L 196,880 L 133,789 Z"
+        }
+      ]
+    ],
     description: 'Perfuração timpânica central ou marginal seca, não acompanhada de secreção ativa ou sinais agudos inflamatórios no momento.'
   },
   {
