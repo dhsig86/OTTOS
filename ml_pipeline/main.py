@@ -37,8 +37,9 @@ vocab = []
 @app.on_event("startup")
 async def load_model():
     global ort_session, vocab
-    model_path = os.path.join("models", "otto_model.onnx")
-    vocab_path = os.path.join("models", "vocab.txt")
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    model_path = os.path.join(BASE_DIR, "models", "otto_model.onnx")
+    vocab_path = os.path.join(BASE_DIR, "models", "vocab.txt")
     print("Iniciando motor híbrido ultraleve ONNX...")
     
     if os.path.exists(model_path) and os.path.exists(vocab_path):
@@ -335,3 +336,74 @@ async def donate_image(
         
     except Exception as e:
         return {"error": f"Erro interno da rota Donate: {str(e)}"}
+
+@app.post("/api/curadoria/feedback")
+async def feedback_image(
+    feedbackImage: UploadFile = File(...),
+    correctDiagnosis: str = Form(...),
+    diagnosisCorrect: str = Form(...),
+    predictedClasses: str = Form(...),
+    differentialDiagnosis: str = Form(""),
+    clinicalCase: str = Form("")
+):
+    """
+    Ponto de entrada nativo central pra as predições do OTOSCOP-IA! 
+    Substitui integralmente o antigo Backend do Heroku.
+    """
+    env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+    c_url = os.environ.get("CLOUDINARY_URL")
+    if not c_url and os.path.exists(env_path):
+        with open(env_path, "r") as f:
+            for line in f:
+                if line.startswith("CLOUDINARY_URL="):
+                    c_url = line.strip().split("=", 1)[1]
+                    break
+    
+    if c_url:
+        os.environ["CLOUDINARY_URL"] = c_url
+        cloudinary.config(cloudinary_url=c_url)
+        
+    db_url = get_database_url()
+    
+    if not c_url or not db_url:
+        return {"error": "Servidor não possui as variáveis Cloudinary ou NeonDB ativadas."}
+        
+    try:
+        contents = await feedbackImage.read()
+        
+        # Upload para o Cloudinary (Fila quente de Curadoria)
+        upload_result = cloudinary.uploader.upload(
+            contents,
+            folder="otoscopia_curadoria_pendente",
+            resource_type="image"
+        )
+        
+        secure_url = upload_result.get("secure_url")
+        if not secure_url:
+            return {"error": "Falha de comunicação Cloudinary"}
+            
+        # Conexão NeonDB e Ingestão
+        conn = psycopg2.connect(db_url, sslmode='require')
+        cur = conn.cursor()
+        
+        insert_query = """
+        INSERT INTO feedback (feedback_image_url, correct_diagnosis, diagnosis_correct, predicted_classes, clinical_case)
+        VALUES (%s, %s, %s, %s, %s)
+        """
+        
+        # Consolida Diferenciais na coluna original de Predicted Classes pro Vercel renderizar lindamente 
+        final_predictions = predictedClasses
+        if differentialDiagnosis:
+            final_predictions += f" | {differentialDiagnosis}"
+            
+        cur.execute(insert_query, (secure_url, correctDiagnosis, diagnosisCorrect, final_predictions, clinicalCase))
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return {"success": True}
+        
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return {"error": f"Internal FastAPI feedback exception: {str(e)}"}

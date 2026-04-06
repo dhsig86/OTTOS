@@ -5,7 +5,7 @@
  */
 
 // O novo padrão React Vite para Variaveis de Ambiente é usar import.meta.env
-const HEROKU_BACKEND_URL = import.meta.env.VITE_HEROKU_BACKEND_URL;
+const API_URL = import.meta.env.VITE_AI_API_URL;
 
 export interface PredictionResult {
   class: string;
@@ -59,7 +59,7 @@ export async function predictOtoscopyImage(file: File): Promise<PredictionResult
   }
 }
 
-// 2. Envio de Feedback para Re-treinamento (Heroku -> Cloudinary + Postgres)
+// 2. Envio de Feedback para Re-treinamento (Local/Render -> Cloudinary + Postgres Neon)
 export async function sendFeedbackToLegacySystem(
   feedbackImage: File,
   correctDiagnosis: string,
@@ -68,7 +68,8 @@ export async function sendFeedbackToLegacySystem(
   differentialDiagnosis: string,
   clinicalCase: string
 ): Promise<boolean> {
-  console.log(`Enviando imagem ${feedbackImage.name} para ${HEROKU_BACKEND_URL}`);
+  const endpoint = `${import.meta.env.VITE_AI_API_URL.replace('/predict', '')}/curadoria/feedback`;
+  console.log(`Enviando imagem ${feedbackImage.name} nativamente para ${endpoint}`);
   
   const formData = new FormData();
   formData.append('feedbackImage', feedbackImage); // Arquivo (File/Blob)
@@ -79,20 +80,18 @@ export async function sendFeedbackToLegacySystem(
   formData.append('clinicalCase', clinicalCase);
 
   try {
-    // ATENÇÃO: Esta chamada agora é REAL e espelha exatamente a função original do seu OtoscopIA.
-    // Gatilho ativado! Enviando imagem p/ Cloudinary e texto p/ Postgres!
-    const response = await fetch(HEROKU_BACKEND_URL, {
+    const response = await fetch(endpoint, {
       method: 'POST',
       body: formData,
     });
     
     if (!response.ok) {
-      throw new Error(`Falha no Heroku. HTTP: ${response.status}`);
+      throw new Error(`Falha no Backend Nativo. HTTP: ${response.status}`);
     }
     
     return true;
   } catch (error) {
-    console.error('Erro de conexão com o backend Heroku', error);
+    console.error('Erro de conexão com o backend Nativo', error);
     return false;
   }
 }
