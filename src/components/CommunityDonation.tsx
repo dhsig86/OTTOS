@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { UploadCloud, CheckCircle, AlertCircle, FileImage, Send, X } from 'lucide-react';
+import { compressImage } from '../utils/imageCompressor';
 
 export function CommunityDonation() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -54,7 +55,10 @@ export function CommunityDonation() {
     
     try {
       const formData = new FormData();
-      selectedFiles.forEach((file) => formData.append('files', file));
+      for (const file of selectedFiles) {
+        const optimized = await compressImage(file);
+        formData.append('files', optimized);
+      }
       formData.append('diagnostic', diagnostic);
       if (clinicalCase) formData.append('clinical_case', clinicalCase);
       

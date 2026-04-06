@@ -11,13 +11,15 @@ export interface PredictionResult {
   class: string;
   confidence: number;
 }
+import { compressImage } from '../utils/imageCompressor';
 
 // 1. Predição de IA (Integração Direta com Servidor PyTorch / FastAPI)
 export async function predictOtoscopyImage(file: File): Promise<PredictionResult[]> {
-  console.log('Enviando imagem para análise da IA REAL via FastAPI...', file);
+  console.log('Enviando imagem otimizada para análise da IA REAL via FastAPI...');
   
+  const optimizedFile = await compressImage(file);
   const formData = new FormData();
-  formData.append('file', file);
+  formData.append('file', optimizedFile);
   
   // Usamos localhost em dev, mas na nuvem hospedamos o backend Python
   const aiEndpoint = import.meta.env.VITE_AI_API_URL || 'http://127.0.0.1:8000/api/predict';
@@ -68,11 +70,13 @@ export async function sendFeedbackToLegacySystem(
   differentialDiagnosis: string,
   clinicalCase: string
 ): Promise<boolean> {
-  const endpoint = `${import.meta.env.VITE_AI_API_URL.replace('/predict', '')}/curadoria/feedback`;
-  console.log(`Enviando imagem ${feedbackImage.name} nativamente para ${endpoint}`);
+  const baseAiUrl = import.meta.env.VITE_AI_API_URL || 'http://127.0.0.1:8000/api/predict';
+  const endpoint = `${baseAiUrl.replace('/api/predict', '').replace('/predict', '')}/api/curadoria/feedback`;
+  console.log(`Enviando imagem ${feedbackImage.name} compactada nativamente para ${endpoint}`);
   
+  const optimizedFile = await compressImage(feedbackImage);
   const formData = new FormData();
-  formData.append('feedbackImage', feedbackImage); // Arquivo (File/Blob)
+  formData.append('feedbackImage', optimizedFile); // Arquivo Otimizado
   formData.append('correctDiagnosis', correctDiagnosis);
   formData.append('diagnosisCorrect', diagnosisCorrect);
   formData.append('predictedClasses', predictedClasses);
