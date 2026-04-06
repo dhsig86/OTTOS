@@ -37,16 +37,21 @@ async def load_model():
     print("Iniciando motor OTOSCOP-IA...")
     
     if os.path.exists(model_path):
-        # Correção de compatibilidade caso o modelo tenha sido treinado de forma cross-platform
-        temp = pathlib.PosixPath
-        pathlib.PosixPath = pathlib.WindowsPath
+        # Correção de compatibilidade para modelos treinados no Windows sendo carregados no Linux (Render)
+        import platform
+        temp_win = None
+        if platform.system() == 'Linux':
+            temp_win = pathlib.WindowsPath
+            pathlib.WindowsPath = pathlib.PosixPath
+            
         try:
             learn = load_learner(model_path)
             print(f"Sucesso! Modelo Neural Carregado: {learn.dls.vocab}")
         except Exception as e:
             print(f"Erro Crítico ao carregar MLOps: {e}")
         finally:
-            pathlib.PosixPath = temp
+            if temp_win is not None:
+                pathlib.WindowsPath = temp_win
     else:
         print(f"Alerta: Arquivo '{model_path}' não encontrado. A IA não está operante.")
 
