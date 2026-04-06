@@ -45,7 +45,7 @@ async def load_model():
             pathlib.WindowsPath = pathlib.PosixPath
             
         try:
-            learn = load_learner(model_path)
+            learn = load_learner(model_path, cpu=True)
             print(f"Sucesso! Modelo Neural Carregado: {learn.dls.vocab}")
         except Exception as e:
             print(f"Erro Crítico ao carregar MLOps: {e}")
