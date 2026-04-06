@@ -6,6 +6,7 @@ import os
 import pathlib
 import cloudinary
 import cloudinary.uploader
+import torch
 
 def get_database_url():
     env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
@@ -67,7 +68,10 @@ async def predict_image(file: UploadFile = File(...)):
     img = PILImage.create(contents)
     
     # Inferência Viva na Rede Neural:
-    pred_class, pred_idx, probs = learn.predict(img)
+    # Restrição EXTREMA de RAM para caber no Render Free Tier (512MB)
+    torch.set_num_threads(1)
+    with torch.no_grad():
+        pred_class, pred_idx, probs = learn.predict(img)
     
     # Extração vocabular
     vocab = learn.dls.vocab
