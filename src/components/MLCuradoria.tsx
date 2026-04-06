@@ -144,8 +144,8 @@ export function MLCuradoria() {
 
   return (
     <div className="w-full max-w-5xl mx-auto p-4 md:p-6 animate-in fade-in">
-      <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-200">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col md:flex-row items-center md:justify-between gap-4 mb-8 pb-4 border-b border-slate-200">
+        <div className="flex items-center gap-3 text-center md:text-left">
           <div className="p-3 bg-slate-900 text-white rounded-xl shadow-lg">
             <ShieldCheck className="w-6 h-6" />
           </div>

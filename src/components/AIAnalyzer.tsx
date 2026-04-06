@@ -80,8 +80,8 @@ export function AIAnalyzer() {
 
   return (
     <div className="w-full max-w-4xl bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 animate-in fade-in zoom-in">
-      <div className="mb-6 text-center">
-        <h2 className="text-3xl font-bold text-slate-800 tracking-tight">
+      <div className="mb-6 text-center break-words">
+        <h2 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">
           <Activity className="w-6 h-6 inline-block text-brand-600 mr-2 -mt-1" />
           OTOSCOP-IA
         </h2>
@@ -147,7 +147,7 @@ export function AIAnalyzer() {
                 {predictions.length > 1 && (
                   <div className="mt-4 pt-4 border-t border-brand-200 flex flex-col gap-2">
                     <span className="block text-xs font-semibold text-brand-700 uppercase tracking-wide">Diagnósticos Diferenciais</span>
-                    <ul className="text-sm text-slate-600 flex justify-center gap-4">
+                    <ul className="text-sm text-slate-600 flex flex-wrap justify-center gap-2">
                       {predictions.slice(1).map((p, i) => (
                         <li key={i} className="bg-white px-3 py-1 rounded-full border border-brand-100 shadow-sm">
                           {p.class} <span className="opacity-70">({(p.confidence * 100).toFixed(0)}%)</span>
