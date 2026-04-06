@@ -5,6 +5,8 @@ import psycopg2
 from pathlib import Path
 from fastai.vision.all import load_learner, PILImage
 import pathlib
+import cloudinary
+import cloudinary.uploader
 
 def clean_name(name):
     # Formata como Título Bonito o que vier da predição ("otite_media_aguda" -> "Otite Media Aguda")
@@ -18,6 +20,20 @@ def get_database_url():
                 if line.startswith("DATABASE_URL="):
                     return line.strip().split("=", 1)[1]
     return os.environ.get("DATABASE_URL")
+
+def get_cloudinary_config():
+    env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+    c_url = os.environ.get("CLOUDINARY_URL")
+    if not c_url and os.path.exists(env_path):
+        with open(env_path, "r") as f:
+            for line in f:
+                if line.startswith("CLOUDINARY_URL="):
+                    c_url = line.strip().split("=", 1)[1]
+                    break
+    if c_url:
+        os.environ["CLOUDINARY_URL"] = c_url
+        cloudinary.config(cloudinary_url=c_url)
+    return c_url
 
 def main():
     print("=======================================")
@@ -71,15 +87,17 @@ def main():
     
     sucesso_count = 0
     # Processa cada arquivo
+    # Inicializa Cloudinary fora do loop para não recarregar
+    c_url = get_cloudinary_config()
+    if not c_url:
+        print("Erro crítico: Variável CLOUDINARY_URL ausente do .env!")
+        return
+
     for f in files:
-        new_name = f"lote2026_{uuid.uuid4().hex[:8]}{f.suffix}"
-        dest_path = os.path.join(public_queue_dir, new_name)
+        new_name = f"lote2026_{uuid.uuid4().hex[:8]}"
         
-        # Copia imagem para a pasta exposta do UI
-        shutil.copy2(str(f), dest_path)
-        
-        # Roda inferência de IA da foto
-        img = PILImage.create(dest_path)
+        # Roda inferência de IA direto da foto original
+        img = PILImage.create(str(f))
         pred_class, pred_idx, probs = learn.predict(img)
         
         # Constrói string de predições principais separadas por vírgula
@@ -87,20 +105,33 @@ def main():
         prob_list = probs.tolist()
         predictions = [{"class": clean_name(str(v)), "confidence": float(p)} for v, p in zip(vocab, prob_list)]
         predictions.sort(key=lambda x: x["confidence"], reverse=True)
-        
-        # Pega Top 3 Formatado
         top_preds_str = ", ".join([f"{p['class']} ({p['confidence']*100:.0f}%)" for p in predictions[:3]])
         
-        # Mapeia imagem servida localmente via HTTP frontend pathing
-        relative_url = f"/curadoria_queue/{new_name}"
+        # Upload nativo para O Cloudinary e resgate da URL Segura
+        try:
+            with open(str(f), "rb") as image_file:
+                upload_result = cloudinary.uploader.upload(
+                    image_file,
+                    folder="curadoria_lote2026",
+                    public_id=new_name,
+                    resource_type="image"
+                )
+            secure_url = upload_result.get("secure_url")
+            if not secure_url:
+                print(f"[{f.name}] Falhou ao obter URL Seguro.")
+                continue
+        except Exception as e:
+            print(f"[{f.name}] Erro Cloudinary: {e}")
+            continue
         
         cur.execute("""
             INSERT INTO feedback (feedback_image_url, correct_diagnosis, diagnosis_correct, predicted_classes, clinical_case)
             VALUES (%s, %s, %s, %s, %s)
-        """, (relative_url, None, None, top_preds_str, "Puxado Automaticamente pelo Lote 2026"))
+        """, (secure_url, None, None, top_preds_str, "Pré-classificado pelo Lote 2026"))
+        conn.commit() # Commit iterativo para não perder avanço
         
         sucesso_count += 1
-        print(f"Lote Processado [{sucesso_count}/{len(files)}]: Predição Principal -> {predictions[0]['class']}")
+        print(f"Lote Processado [{sucesso_count}/{len(files)}]: {predictions[0]['class']} -> Nuvem OK")
 
     conn.commit()
     cur.close()
@@ -108,8 +139,8 @@ def main():
     
     print("\n=======================================================")
     print(f"INCRÍVEL! {sucesso_count} imagens foram autoaditadas.")
-    print("Agora abra o App React -> Curadoria MLOps e revise os achados!")
-    print("As aprovadas voltarão ao ciclo em APPROTTO/Samples .")
+    print("    e agora aguardam seu Veredito Médico no painel Curadoria (Revisar).")
+    print("As aprovadas voltarão ao ciclo em OTTO_ML_Dataset_Raw .")
 
 if __name__ == '__main__':
     main()

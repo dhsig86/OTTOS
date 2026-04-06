@@ -159,8 +159,8 @@ async def process_zip_upload(file: UploadFile = File(...)):
         f.write(await file.read())
         
     try:
-        # Aponte fixo para o "Coração" do seu banco de amostras legadas
-        base_dir = r"C:\Users\drdhs\OneDrive\Documentos\APPROTTO\Samples"
+        # Aponte fixo para a raiz mestre de curadoria bruta
+        base_dir = r"C:\Users\drdhs\OneDrive\Documentos\ottoatlas\OTTO_ML_Dataset_Raw"
         processed_count = 0
         new_classes = set()
         
@@ -249,7 +249,7 @@ async def approve_image(payload: dict):
             
         # 2. Se Aprovado: Fazer Download físico do Cloudinary para o Cérebro OU mover arquivo Local
         norm_class = normalize_class_name(class_name) if class_name else "Unknown"
-        base_dir = r"C:\Users\drdhs\OneDrive\Documentos\APPROTTO\Samples"
+        base_dir = r"C:\Users\drdhs\OneDrive\Documentos\ottoatlas\OTTO_ML_Dataset_Raw"
         class_dir = os.path.join(base_dir, norm_class)
         os.makedirs(class_dir, exist_ok=True)
         

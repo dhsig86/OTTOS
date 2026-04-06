@@ -69,8 +69,8 @@ if __name__ == '__main__':
     # Onde você (usuário) jogou as fotos soltas do seu Whatsapp:
     INBOX = r"C:\Users\drdhs\OneDrive\Documentos\ottoatlas\inbox_fotos_novas"
     
-    # O banco do Machine Learning (leitura principal)
-    SAMPLES_DB = r"C:\Users\drdhs\OneDrive\Documentos\APPROTTO\Samples"
+    print("====== Sincronização Heroku -> Cloudinary (+ Downloader) ======")
+    SAMPLES_DB = r"C:\Users\drdhs\OneDrive\Documentos\ottoatlas\OTTO_ML_Dataset_Raw"
     
     # Deixamos copy_only=True para NUNCA apagar os arquivos originais do médico
     auto_tag_and_sync(INBOX, SAMPLES_DB, copy_only=True)

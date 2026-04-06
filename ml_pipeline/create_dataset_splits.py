@@ -54,11 +54,10 @@ if __name__ == '__main__':
     print("OTTO MLOps: Gerador Automático de Datasets (Train/Val/Test Splits)")
     print("==================================================================")
     
-    # Exemplo de formatação futura para o Dr.
-    # Você aponta as imagens puras (após serem jogadas pelas pastas de classes do atlas)
-    SOURCE = r"C:\Users\drdhs\OneDrive\Documentos\APPROTTO\Samples"
+    # Você aponta as imagens puras aprovadas pela Curadoria (pasta bruta)
+    SOURCE = r"C:\Users\drdhs\OneDrive\Documentos\ottoatlas\OTTO_ML_Dataset_Raw"
     
-    # E ele gera uma pasta limpinha, pronta para a Inteligência Artificial.
-    DESTINATION = r"C:\Users\drdhs\OneDrive\Documentos\APPROTTO\PORTFOLIO_OFICIAL_ML"
+    # Ele separa 85% para treino e 15% para validação na pasta oficial da Inteligência
+    DESTINATION = r"C:\Users\drdhs\OneDrive\Documentos\ottoatlas\OTTO_ML_Dataset"
     
     create_splits(SOURCE, DESTINATION)
