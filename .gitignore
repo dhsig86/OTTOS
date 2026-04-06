@@ -9,6 +9,7 @@ __pycache__
 latest.dump
 *.sql
 *.dump
+*.pkl
 
 # Dados Sensíveis/Maciços do Heroku e do Computador Local 
 ../OTTO_ML_Dataset

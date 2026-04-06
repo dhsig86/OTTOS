@@ -1,10 +1,9 @@
 fastapi
 uvicorn
 python-multipart
---extra-index-url https://download.pytorch.org/whl/cpu
-torch
-torchvision
-fastai
+onnxruntime
+numpy
+Pillow
 requests
 psycopg2-binary
 ipython

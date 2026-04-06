@@ -1,12 +1,14 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastai.vision.all import load_learner, PILImage
 import psycopg2
 import os
 import pathlib
 import cloudinary
 import cloudinary.uploader
-import torch
+import onnxruntime as ort
+import numpy as np
+from PIL import Image
+import io
 
 def get_database_url():
     env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
@@ -17,9 +19,9 @@ def get_database_url():
                     return line.strip().split("=", 1)[1]
     return os.environ.get("DATABASE_URL")
 
-app = FastAPI(title="OTOSCOP-IA Engine", description="FastAPI Backend for Fast.ai PyTorch Model")
+app = FastAPI(title="OTOSCOP-IA Engine", description="FastAPI Backend for ONNX Runtime")
 
-# Permitir o Frontend React (localhost:5173) acessar o Python
+# Permitir o Frontend React (localhost:5173 e Prod)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -28,67 +30,76 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Variável de memória para a nossa Rede Neural (ResNet18)
-learn = None
+# Variaveis de Memória Ultraleves (Apenas ONNX Session e Array de Strings)
+ort_session = None
+vocab = []
 
 @app.on_event("startup")
 async def load_model():
-    global learn
-    model_path = os.path.join("models", "otto_diagnostic_model.pkl")
-    print("Iniciando motor OTOSCOP-IA...")
+    global ort_session, vocab
+    model_path = os.path.join("models", "otto_model.onnx")
+    vocab_path = os.path.join("models", "vocab.txt")
+    print("Iniciando motor híbrido ultraleve ONNX...")
     
-    if os.path.exists(model_path):
-        # Correção de compatibilidade para modelos treinados no Windows sendo carregados no Linux (Render)
-        import platform
-        temp_win = None
-        if platform.system() == 'Linux':
-            temp_win = pathlib.WindowsPath
-            pathlib.WindowsPath = pathlib.PosixPath
-            
+    if os.path.exists(model_path) and os.path.exists(vocab_path):
         try:
-            learn = load_learner(model_path, cpu=True)
-            print(f"Sucesso! Modelo Neural Carregado: {learn.dls.vocab}")
+            with open(vocab_path, "r", encoding="utf-8") as f:
+                vocab = [line.strip() for line in f if line.strip()]
+            
+            # Carrega a Sessão de Inferência ONNX (Evapora 95% do uso de RAM do PyTorch) 
+            ort_session = ort.InferenceSession(model_path, providers=['CPUExecutionProvider'])
+            print(f"Sucesso Crítico! Cérebro ONNX Carregado. Vocabulário: {vocab}")
         except Exception as e:
-            print(f"Erro Crítico ao carregar MLOps: {e}")
-        finally:
-            if temp_win is not None:
-                pathlib.WindowsPath = temp_win
+            print(f"Erro Fatal ONNX: {e}")
     else:
-        print(f"Alerta: Arquivo '{model_path}' não encontrado. A IA não está operante.")
+        print(f"Alerta: Arquivos ONNX ou Vocab não encontrados.")
 
 @app.post("/api/predict")
 async def predict_image(file: UploadFile = File(...)):
-    if not learn:
-        return {"error": "O cérebro PyTorch não está carregado. Verifique os logs do servidor."}
+    if not ort_session or not vocab:
+        return {"error": "O cérebro ONNX não está carregado. Verifique os logs do servidor."}
     
-    # Lemos os bytes físicos da imagem enviada pelo React
     contents = await file.read()
     
-    # O Fast.ai processa bytes nativamente
-    img = PILImage.create(contents)
-    
-    # Inferência Viva na Rede Neural:
-    # Restrição EXTREMA de RAM para caber no Render Free Tier (512MB)
-    torch.set_num_threads(1)
-    with torch.no_grad():
-        pred_class, pred_idx, probs = learn.predict(img)
-    
-    # Extração vocabular
-    vocab = learn.dls.vocab
-    prob_list = probs.tolist()
-    
-    # Construir JSON estruturado no formato que o TypeScript/React espera, 
-    # limpando sufixos indesejados como "-samples" e sublinhados
-    def clean_name(name):
-        return name.replace("-samples", "").replace("_", " ").title() if name.islower() else name.replace("-samples", "").replace("_", " ")
+    try:
+        # Pre-processamento rigoroso de imagens matriciais ao estilo FastAI (3x224x224 RGB)
+        img = Image.open(io.BytesIO(contents)).convert("RGB")
+        img = img.resize((224, 224), Image.Resampling.BILINEAR)
         
-    predictions = [{"class": clean_name(str(v)), "confidence": float(p)} for v, p in zip(vocab, prob_list)]
-    
-    # Ordenar pelos maiores chutes primeiro
-    predictions.sort(key=lambda x: x["confidence"], reverse=True)
-    
-    # Retornar o formidável Top-3 Diferencial!
-    return predictions[:3]
+        # Desmontando Imagem para Tensores Float Baseados em [0..1]
+        img_arr = np.array(img).astype(np.float32) / 255.0
+        
+        # ImageNet Normalization Padrão do PyTorch
+        mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+        std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+        img_arr = (img_arr - mean) / std
+        
+        # O PyTorch Treinou como [Channels, Height, Width]! Então o eixo da Imagem precisa virar
+        img_arr = np.transpose(img_arr, (2, 0, 1))
+        # Fabricar Lote [Batch(=1), Channels(=3), Height(=224), Width(=224)]
+        input_tensor = np.expand_dims(img_arr, axis=0)
+        
+        # Roda inferência de C++ Nativo (Milissegundos)
+        inputs = {ort_session.get_inputs()[0].name: input_tensor}
+        logits = ort_session.run(None, inputs)[0][0]
+        
+        # Calibragem matemática Softmax (Distribuição Probabilística de 0 a 1)
+        exp_L = np.exp(logits - np.max(logits))
+        probs = exp_L / np.sum(exp_L)
+        
+        def clean_name(name):
+            return name.replace("-samples", "").replace("_", " ").title() if name.islower() else name.replace("-samples", "").replace("_", " ")
+        
+        # Combina classes com probabilidades e ordena
+        predictions = [{"class": clean_name(str(v)), "confidence": float(p)} for v, p in zip(vocab, probs)]
+        predictions.sort(key=lambda x: x["confidence"], reverse=True)
+        
+        return predictions[:3]
+        
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return {"error": f"Falha na inferência estrutural ONNX: {str(e)}"}
 
 @app.get("/api/curadoria/pending")
 def get_pending_feedback():
