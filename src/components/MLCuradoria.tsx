@@ -19,14 +19,14 @@ export function MLCuradoria() {
   const [useCustomClass, setCustomClass] = useState<Record<number, boolean>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const OFICIAL_CLASSES = [
+  const [oficialClasses, setOficialClasses] = useState<string[]>([
     'normal',
     'otite_media_aguda',
     'otite_media_cronica',
     'otite_externa_aguda',
     'obstrucao',
     'nao_otoscopica'
-  ];
+  ]);
 
   const handleZipUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -61,7 +61,20 @@ export function MLCuradoria() {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
-
+  useEffect(() => {
+    const fetchClasses = async () => {
+      try {
+        const res = await fetch('http://127.0.0.1:8000/api/curadoria/classes');
+        const data = await res.json();
+        if (data.classes && data.classes.length > 0) {
+          setOficialClasses(data.classes);
+        }
+      } catch (e) {
+        console.warn("Could not fetch dynamic classes from backend", e);
+      }
+    };
+    fetchClasses();
+  }, []);
   useEffect(() => {
     const fetchPendingImages = async () => {
       try {
@@ -189,7 +202,7 @@ export function MLCuradoria() {
                   <div className="flex justify-between items-center mb-1">
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Classe Oficial MLOps</span>
                     {useCustomClass[item.id] && (
-                      <button onClick={() => handleSelectChange(item.id, OFICIAL_CLASSES[0])} className="text-xs text-brand-600 font-bold hover:underline">
+                      <button onClick={() => handleSelectChange(item.id, oficialClasses[0])} className="text-xs text-brand-600 font-bold hover:underline">
                         Voltar para Menu
                       </button>
                     )}
@@ -202,7 +215,7 @@ export function MLCuradoria() {
                       className="w-full text-base font-bold text-slate-700 bg-slate-50 border-2 border-slate-200 rounded-lg p-2 focus:border-brand-500 focus:outline-none transition-colors"
                     >
                       <option value="" disabled hidden>Selecione a Classe...</option>
-                      {OFICIAL_CLASSES.map(cls => (
+                      {oficialClasses.map(cls => (
                         <option key={cls} value={cls}>{cls}</option>
                       ))}
                       <option value="NOVA_CLASSE" className="font-extrabold text-brand-600">+ NOVA CLASSE/SUBCLASSE</option>

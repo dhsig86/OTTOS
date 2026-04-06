@@ -167,10 +167,10 @@ async def process_zip_upload(file: UploadFile = File(...)):
     def normalize_class_name(name: str) -> str:
         # Remove acentos
         n = ''.join(c for c in unicodedata.normalize('NFD', name) if unicodedata.category(c) != 'Mn')
-        # Remove caracteres especiais
-        n = re.sub(r'[^a-zA-Z0-9\s]', '', n)
-        # Normaliza espaços extras e aplica CamelCase (ex: "Otite Media Cronica")
-        return ' '.join(n.split()).title()
+        # Remove caracteres especiais, exceto underline
+        n = re.sub(r'[^a-zA-Z0-9\s_]', '', n)
+        # Força padrão snake_case ("Otite Media Serosa" -> "otite_media_serosa")
+        return '_'.join(n.lower().split())
 
     if not file.filename.lower().endswith('.zip'):
         return {"error": "Por segurança, a rota de ingestão bulk aceita exclusivamente formato .zip."}
@@ -199,17 +199,16 @@ async def process_zip_upload(file: UploadFile = File(...)):
                     raw_class_name = parts[-2].strip()
                     file_name = parts[-1].strip()
                     
-                    if not file_name: continue # era só uma pasta
+                    if not file_name: continue
                     
-                    # Normaliza o nome da patologia para evitar poluição da Árvore de Pastas
                     class_name = normalize_class_name(raw_class_name)
-                    
                     class_dir = os.path.join(base_dir, class_name)
                     if not os.path.exists(class_dir):
                         os.makedirs(class_dir, exist_ok=True)
                         new_classes.add(class_name)
                     
                     dest_file = os.path.join(class_dir, file_name)
+                    
                     # Estratégia Anti-Colisão (Overwrite protection)
                     if os.path.exists(dest_file):
                         name, ext = os.path.splitext(file_name)
@@ -232,6 +231,32 @@ async def process_zip_upload(file: UploadFile = File(...)):
             os.remove(temp_zip)
         return {"error": f"Falha catastrófica ao processar lote: {str(e)}"}
 
+@app.get("/api/curadoria/classes")
+def get_dynamic_classes():
+    """
+    Rastreia dinamicamente o Vocabulário Oficial do Modelo + Quaisquer Pastas Novas 
+    criadas via Front-End que ainda não foram treinadas. Retorna a lista integral!
+    """
+    raw_dir = r"C:\Users\drdhs\OneDrive\Documentos\ottoatlas\OTTO_ML_Dataset_Raw"
+    train_dir = r"C:\Users\drdhs\OneDrive\Documentos\ottoatlas\OTTO_ML_Dataset\TRAIN"
+    
+    classes = set()
+    global vocab
+    if vocab:
+        classes.update(vocab)
+        
+    if os.path.exists(raw_dir):
+        for d in os.listdir(raw_dir):
+            if os.path.isdir(os.path.join(raw_dir, d)):
+                classes.add(d)
+                
+    if os.path.exists(train_dir):
+        for d in os.listdir(train_dir):
+            if os.path.isdir(os.path.join(train_dir, d)):
+                classes.add(d)
+                
+    return {"classes": sorted(list(classes))}
+
 @app.post("/api/curadoria/approve")
 async def approve_image(payload: dict):
     '''
@@ -246,8 +271,8 @@ async def approve_image(payload: dict):
     
     def normalize_class_name(name: str) -> str:
         n = ''.join(c for c in unicodedata.normalize('NFD', name) if unicodedata.category(c) != 'Mn')
-        n = re.sub(r'[^a-zA-Z0-9\s]', '', n)
-        return ' '.join(n.split()).title()
+        n = re.sub(r'[^a-zA-Z0-9\s_]', '', n)
+        return '_'.join(n.lower().split())
         
     try:
         record_id = payload.get("id")
