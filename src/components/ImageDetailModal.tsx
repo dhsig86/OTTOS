@@ -178,7 +178,7 @@ export function ImageDetailModal({ item, onClose }: Props) {
                   <g key={spot.id} className={!isDrawing ? "pointer-events-auto" : "pointer-events-none"}>
                     <path
                       d={spot.path}
-                      className="fill-brand-400/30 stroke-brand-500 stroke-[3] cursor-pointer transition-all hover:fill-brand-500/50"
+                      className="fill-transparent stroke-white/80 stroke-[2] cursor-pointer transition-all hover:fill-white/10 hover:stroke-white drop-shadow-sm blur-[0.3px] hover:blur-none"
                       onMouseEnter={() => setHoveredHotspot(spot)}
                       onMouseLeave={() => setHoveredHotspot(null)}
                     />
