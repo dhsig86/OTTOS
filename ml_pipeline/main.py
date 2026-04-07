@@ -454,3 +454,92 @@ async def feedback_image(request: Request):
         import traceback
         print(traceback.format_exc())
         return {"error": f"Internal FastAPI feedback exception: {str(e)}"}
+
+# -------------------------------------------------------------
+# GEN 3.0: ATLAS CMS - ROTAS DE DADOS NUVEM DO FRONTEND
+# O frontend busca e envia novos casos direto para Nuvem(Sem estourar o limite de 500MB do Github)
+# -------------------------------------------------------------
+
+@app.get("/api/atlas")
+async def get_atlas_cloud_items():
+    db_url = get_database_url()
+    if not db_url:
+        return {"error": "Banco de Dados indisponível"}
+        
+    try:
+        conn = psycopg2.connect(db_url, sslmode='require')
+        cur = conn.cursor()
+        cur.execute("SELECT id, pathology, description, image_url, svg_json FROM atlas_cloud_items ORDER BY created_at DESC")
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        
+        items = []
+        for r in rows:
+            items.append({
+                "id": str(r[0]),
+                "pathology": r[1] or "",
+                "description": r[2] or "",
+                "image_url": r[3] or "",
+                "svg_json": r[4] or ""
+            })
+        return {"success": True, "items": items}
+        
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return {"error": str(e)}
+
+@app.post("/api/admin/atlas")
+async def create_atlas_cloud_item(request: Request):
+    form = await request.form()
+    file = form.get("file")
+    pathology = form.get("pathology", "Sem Patologia")
+    description = form.get("description", "Sem descrição")
+    svg_json = form.get("svg_json", "[]")
+    
+    if not file:
+        return {"error": "Arquivo não encontado no POST form."}
+        
+    if not setup_cloudinary():
+        return {"error": "Credenciais do Cloudinary malformadas ou indisponíveis."}
+        
+    db_url = get_database_url()
+    if not db_url:
+        return {"error": "DATABASE_URL do Neon não localizada."}
+        
+    try:
+        contents = await file.read()
+        
+        # 1. Envia para a plataforma Cloudinary Oficial (Na pasta CloudAtlas)
+        upload_result = cloudinary.uploader.upload(
+            contents,
+            folder="otoscopia_atlas_nuvem",
+            resource_type="image"
+        )
+        secure_url = upload_result.get("secure_url")
+        
+        if not secure_url:
+            return {"error": "Falha silenciosa do Cloudinary - Não gerou URL."}
+            
+        # 2. Injeta Metadados SVG + Cloud URL no Neon DB!
+        conn = psycopg2.connect(db_url, sslmode='require')
+        cur = conn.cursor()
+        
+        insert_query = """
+        INSERT INTO atlas_cloud_items (pathology, description, image_url, svg_json) 
+        VALUES (%s, %s, %s, %s)
+        """
+        cur.execute(insert_query, (pathology, description, secure_url, svg_json))
+        conn.commit()
+        
+        cur.close()
+        conn.close()
+        
+        return {"success": True, "url": secure_url, "message": "Atlas Cloud Atualizado!"}
+        
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return {"error": str(e)}
+
