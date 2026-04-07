@@ -25,6 +25,20 @@ export function ImageDetailModal({ item, onClose }: Props) {
     setCurrentPathPoints([]);
   }, [currentImageIdx]);
 
+  // Tecla Delete / Backspace para apagar polígonos durante o hover
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isAdminMode && hoveredHotspot && drawnHotspots.some(d => d.id === hoveredHotspot.id)) {
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+          setDrawnHotspots(prev => prev.filter(s => s.id !== hoveredHotspot.id));
+          setHoveredHotspot(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isAdminMode, hoveredHotspot, drawnHotspots]);
+
   // Restringe a visualização do Mapeamento Anatômico ao Índice da Foto atual para permitir edição flexível.
   const loadedHotspots = (item.hotspots && item.hotspots[currentImageIdx]) ? item.hotspots[currentImageIdx] : [];
   const allHotspots = [...loadedHotspots, ...drawnHotspots];
