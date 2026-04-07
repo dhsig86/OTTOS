@@ -327,14 +327,18 @@ async def approve_image(payload: dict):
     except Exception as e:
         return {"error": str(e)}
 
+from fastapi import Request
 from typing import List, Optional
 
 @app.post("/api/curadoria/donate")
-async def donate_image(
-    files: List[UploadFile] = File(...),
-    diagnostic: str = Form(...),
-    clinical_case: Optional[str] = Form(default="")
-):
+async def donate_image(request: Request):
+    form = await request.form()
+    files = form.getlist("files")
+    diagnostic = form.get("diagnostic", "Desconhecido")
+    clinical_case = form.get("clinical_case", "")
+    
+    if not files:
+        return {"error": "Nenhum arquivo de imagem foi enviado ou reconhecido pelo servidor."}
     if not setup_cloudinary():
         return {"error": "Credenciais do Cloudinary malformadas."}
         
@@ -382,18 +386,21 @@ async def donate_image(
 
 @app.post("/api/curadoria/feedback")
 @app.post("/api/feedback")
-async def feedback_image(
-    feedbackImage: UploadFile = File(...),
-    correctDiagnosis: str = Form(...),
-    diagnosisCorrect: str = Form(...),
-    predictedClasses: str = Form(...),
-    differentialDiagnosis: Optional[str] = Form(default=""),
-    clinicalCase: Optional[str] = Form(default="")
-):
+async def feedback_image(request: Request):
     """
     Ponto de entrada nativo central pra as predições do OTOSCOP-IA! 
     Substitui integralmente o antigo Backend do Heroku.
     """
+    form = await request.form()
+    feedbackImage = form.get("feedbackImage")
+    correctDiagnosis = form.get("correctDiagnosis", "")
+    diagnosisCorrect = form.get("diagnosisCorrect", "yes")
+    predictedClasses = form.get("predictedClasses", "")
+    differentialDiagnosis = form.get("differentialDiagnosis", "")
+    clinicalCase = form.get("clinicalCase", "")
+    
+    if not feedbackImage:
+        return {"error": "Imagem de feedback ausente na carga."}
     if not setup_cloudinary():
         return {"error": "Servidor não possui as variáveis Cloudinary ativadas ou estão mal formatadas."}
         
