@@ -17,7 +17,15 @@ export function AtlasGrid({ onSelectItem }: Props) {
         const data = await res.json();
         
         if (data.success && data.items) {
-          const cloudItems: AtlasItem[] = data.items.map((cloudItem: any) => {
+          const map = new Map<string, AtlasItem>();
+          
+          // 1. Injeta a base nativa no Dicionário
+          atlasData.forEach(item => {
+             map.set(item.pathology, { ...item, images: [...item.images], hotspots: item.hotspots ? [...item.hotspots] : [] });
+          });
+          
+          // 2. Funde a Nuvem dinamicamente
+          data.items.forEach((cloudItem: any) => {
              let parsedHotspots = [];
              try { 
                  if (cloudItem.svg_json) parsedHotspots = JSON.parse(cloudItem.svg_json); 
@@ -25,17 +33,23 @@ export function AtlasGrid({ onSelectItem }: Props) {
                  console.warn("Falha no parse do SVG do Atlas: ", cloudItem.id);
              }
              
-             return {
-                id: `cloud_${cloudItem.id}`,
-                pathology: cloudItem.pathology,
-                description: cloudItem.description,
-                images: [cloudItem.image_url],
-                hotspots: [parsedHotspots] // O Carrossel espera SvgHotspot[][] (Array duplo onde [0] é a 1ª imagem)
-             };
+             if (map.has(cloudItem.pathology)) {
+                 const existing = map.get(cloudItem.pathology)!;
+                 existing.images.unshift(cloudItem.image_url); // Coloca a foto da nuvem primeiro
+                 existing.hotspots!.unshift(parsedHotspots);
+                 if (!existing.id.includes('cloud')) existing.id = `cloud_expanded_${existing.id}`;
+             } else {
+                 map.set(cloudItem.pathology, {
+                    id: `cloud_${cloudItem.id}`,
+                    pathology: cloudItem.pathology,
+                    description: cloudItem.description || '',
+                    images: [cloudItem.image_url],
+                    hotspots: [parsedHotspots]
+                 });
+             }
           });
           
-          // O Acervo Dinâmico: Nuvem no topo, mock nativo embaixo!
-          setItems([...cloudItems, ...atlasData]);
+          setItems(Array.from(map.values()));
         }
       } catch (e) {
         console.error("Erro Crítico de Rota Nuvem (Fallback ativado):", e);

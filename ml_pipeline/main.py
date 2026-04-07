@@ -469,7 +469,7 @@ async def get_atlas_cloud_items():
     try:
         conn = psycopg2.connect(db_url, sslmode='require')
         cur = conn.cursor()
-        cur.execute("SELECT id, pathology, description, image_url, svg_json FROM atlas_cloud_items ORDER BY created_at DESC")
+        cur.execute("SELECT id, pathology, description, image_url, svg_json FROM atlas_cloud_items WHERE is_deleted = FALSE ORDER BY created_at DESC")
         rows = cur.fetchall()
         cur.close()
         conn.close()
@@ -543,3 +543,63 @@ async def create_atlas_cloud_item(request: Request):
         print(traceback.format_exc())
         return {"error": str(e)}
 
+# -------------------------------------------------------------
+# GEN 3.0: LIXEIRA ADMINISTRATIVA E SOFT DELETE
+# -------------------------------------------------------------
+
+@app.get("/api/admin/atlas/trash")
+async def get_atlas_trash():
+    db_url = get_database_url()
+    if not db_url: return {"error": "Banco indisponivel"}
+    try:
+        conn = psycopg2.connect(db_url, sslmode='require')
+        cur = conn.cursor()
+        cur.execute("SELECT id, pathology, description, image_url, svg_json FROM atlas_cloud_items WHERE is_deleted = TRUE ORDER BY created_at DESC LIMIT 5")
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        
+        items = []
+        for r in rows:
+            items.append({
+                "id": str(r[0]),
+                "pathology": r[1] or "",
+                "description": r[2] or "",
+                "image_url": r[3] or "",
+                "svg_json": r[4] or ""
+            })
+        return {"success": True, "items": items}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.delete("/api/admin/atlas/{item_id}")
+async def soft_delete_atlas_item(item_id: int):
+    db_url = get_database_url()
+    if not db_url: return {"error": "Banco indisponivel"}
+    try:
+        conn = psycopg2.connect(db_url, sslmode='require')
+        cur = conn.cursor()
+        cur.execute("UPDATE atlas_cloud_items SET is_deleted = TRUE WHERE id = %s", (item_id,))
+        if cur.rowcount == 0:
+            return {"error": "Item não encontrado"}
+        conn.commit()
+        cur.close()
+        conn.close()
+        return {"success": True}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.post("/api/admin/atlas/{item_id}/restore")
+async def restore_atlas_item(item_id: int):
+    db_url = get_database_url()
+    if not db_url: return {"error": "Banco indisponivel"}
+    try:
+        conn = psycopg2.connect(db_url, sslmode='require')
+        cur = conn.cursor()
+        cur.execute("UPDATE atlas_cloud_items SET is_deleted = FALSE WHERE id = %s", (item_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return {"success": True}
+    except Exception as e:
+        return {"error": str(e)}
