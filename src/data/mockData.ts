@@ -19,7 +19,9 @@ export const atlasData: AtlasItem[] = [
     images: [
       '/images/atlas_v3/Normal_1.jpg',
       '/images/atlas_v3/Normal_2.jpg',
-      '/images/atlas_v3/Normal_3.jpg'
+      '/images/atlas_v3/Normal_3.jpg',
+      '/images/atlas_v4/normal_v4_1.jpg',
+      '/images/atlas_v4/normal_v4_2.jpg'
     ],
     hotspots: [
       [
@@ -38,7 +40,9 @@ export const atlasData: AtlasItem[] = [
     images: [
       '/images/atlas_v3/Otite_M_dia_Aguda___Bacteriana_1.jpg',
       '/images/atlas_v3/Otite_M_dia_Aguda___Bacteriana_2.jpg',
-      '/images/atlas_v3/Otite_M_dia_Aguda___Bacteriana_3.jpg'
+      '/images/atlas_v3/Otite_M_dia_Aguda___Bacteriana_3.jpg',
+      '/images/atlas_v4/otite_media_aguda_v4_1.jpg',
+      '/images/atlas_v4/otite_media_aguda_v4_2.jpg'
     ],
     hotspots: [
       [
@@ -91,7 +95,9 @@ export const atlasData: AtlasItem[] = [
     images: [
       '/images/atlas_v3/Otite_M_dia_Cr_nica___Simples_1.jpg',
       '/images/atlas_v3/Otite_M_dia_Cr_nica___Simples_2.jpg',
-      '/images/atlas_v3/Otite_M_dia_Cr_nica___Simples_3.jpg'
+      '/images/atlas_v3/Otite_M_dia_Cr_nica___Simples_3.jpg',
+      '/images/atlas_v4/otite_media_cronica_v4_1.jpg',
+      '/images/atlas_v4/otite_media_cronica_v4_2.jpg'
     ],
     hotspots: [
       [
@@ -164,7 +170,9 @@ export const atlasData: AtlasItem[] = [
     images: [
       '/images/atlas_v3/Otite_Externa_Aguda___Difusa_1.jpg',
       '/images/atlas_v3/Otite_Externa_Aguda___Difusa_2.jpg',
-      '/images/atlas_v3/Otite_Externa_Aguda___Difusa_3.jpg'
+      '/images/atlas_v3/Otite_Externa_Aguda___Difusa_3.jpg',
+      '/images/atlas_v4/otite_externa_aguda_v4_1.jpg',
+      '/images/atlas_v4/otite_externa_aguda_v4_2.jpg'
     ],
     description: 'Edema difuso inflamatório (inchado) do conduto auditivo, obliterando parcialmente ou totalmente a visão do tímpano.'
   },
@@ -174,7 +182,9 @@ export const atlasData: AtlasItem[] = [
     images: [
       '/images/atlas_v3/Corpo_Estranho_1.jpg',
       '/images/atlas_v3/Corpo_Estranho_2.jpg',
-      '/images/atlas_v3/Corpo_Estranho_3.png'
+      '/images/atlas_v3/Corpo_Estranho_3.png',
+      '/images/atlas_v4/cerume_obstrucao_v4_1.jpg',
+      '/images/atlas_v4/cerume_obstrucao_v4_2.jpg'
     ],
     description: 'Elementos alheios ao corpo humano (insetos, algodão, massa de cerume impactada) bloqueando o canal auditivo.'
   },
