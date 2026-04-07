@@ -83,7 +83,7 @@ export function AIAnalyzer() {
       <div className="mb-6 text-center break-words">
         <h2 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">
           <Activity className="w-6 h-6 inline-block text-brand-600 mr-2 -mt-1" />
-          OTOSCOP-IA
+          OTTOscop-IA
         </h2>
         <p className="text-slate-500 mt-1">Carregue uma imagem otoscópica para receber uma segunda opinião e alimentar o modelo de inteligência.</p>
       </div>
