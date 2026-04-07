@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AtlasItem, SvgHotspot } from '../data/mockData';
-import { X, Eye, EyeOff, Lock } from 'lucide-react';
+import { X, Eye, EyeOff, Lock, Trash2 } from 'lucide-react';
 
 interface Props {
   item: AtlasItem;
@@ -209,8 +209,18 @@ export function ImageDetailModal({ item, onClose }: Props) {
             )}
 
             {hoveredHotspot && !isDrawing && (
-              <div className="absolute bottom-4 left-4 z-30 bg-slate-900/90 text-white px-3 py-1.5 rounded-lg text-sm font-medium backdrop-blur shadow-lg animate-in fade-in zoom-in duration-200 border border-brand-500/50">
-                {hoveredHotspot.label}
+              <div className="absolute bottom-4 left-4 z-30 bg-slate-900/90 text-white px-3 py-1.5 rounded-lg text-sm font-medium backdrop-blur shadow-lg animate-in fade-in zoom-in duration-200 border border-brand-500/50 flex items-center gap-3 pointer-events-auto">
+                <span>{hoveredHotspot.label}</span>
+                {isAdminMode && drawnHotspots.some(d => d.id === hoveredHotspot.id) && (
+                   <button 
+                     onClick={(e) => {
+                        e.stopPropagation();
+                        setDrawnHotspots(prev => prev.filter(s => s.id !== hoveredHotspot.id));
+                     }}
+                     className="bg-rose-600 hover:bg-rose-500 rounded p-1 text-white shadow"
+                     title="Excluir Polígono Desenhado na Sessão"
+                   ><Trash2 size={14} /></button>
+                )}
               </div>
             )}
         </div>
