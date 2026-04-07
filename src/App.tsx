@@ -5,13 +5,14 @@ import { ImageDetailModal } from './components/ImageDetailModal'
 import { AtlasQuiz } from './components/AtlasQuiz'
 import { AIAnalyzer } from './components/AIAnalyzer'
 import { MLCuradoria } from './components/MLCuradoria'
+import { SVGStudio } from './components/SVGStudio'
 import { OtoscopyInstructionsModal } from './components/OtoscopyInstructionsModal'
 import { CommunityDonation } from './components/CommunityDonation'
 import { AtlasItem } from './data/mockData'
 
 function App() {
   const [selectedItem, setSelectedItem] = useState<AtlasItem | null>(null)
-  const [viewMode, setViewMode] = useState<'atlas' | 'quiz' | 'ia' | 'curadoria' | 'donation'>('atlas')
+  const [viewMode, setViewMode] = useState<'atlas' | 'quiz' | 'ia' | 'curadoria' | 'donation' | 'studio'>('atlas')
   const [showInstructions, setShowInstructions] = useState(false)
 
   return (
@@ -52,12 +53,14 @@ function App() {
                 const pass = prompt("Sessão Administrativa MLOps. Insira a senha mestre:");
                 if (pass === "020786da") {
                   setViewMode('curadoria');
+                } else if (pass === "svg") {
+                  setViewMode('studio');
                 } else if (pass !== null) {
                   alert("Senha incorreta.");
                 }
               }}
-              className={`p-2 rounded-lg hidden md:flex lg:flex items-center justify-center transition-colors ${viewMode === 'curadoria' ? 'bg-slate-900 text-white' : 'bg-brand-600 text-brand-200 hover:bg-slate-800'}`}
-              title="Acesso Restrito - Curadoria MLOps"
+              className={`p-2 rounded-lg hidden md:flex lg:flex items-center justify-center transition-colors ${(viewMode === 'curadoria' || viewMode === 'studio') ? 'bg-slate-900 text-white' : 'bg-brand-600 text-brand-200 hover:bg-slate-800'}`}
+              title="Acesso Restrito - Curadoria e Ferramentas"
             >
               <Lock className="w-5 h-5" />
             </button>
@@ -95,6 +98,7 @@ function App() {
         {viewMode === 'quiz' && <AtlasQuiz />}
         {viewMode === 'ia' && <AIAnalyzer />}
         {viewMode === 'curadoria' && <MLCuradoria />}
+        {viewMode === 'studio' && <SVGStudio />}
         {viewMode === 'donation' && (
           <div className="w-full flex items-center justify-center mt-6">
             <CommunityDonation />
