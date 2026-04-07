@@ -78,6 +78,32 @@ export function OtoscopyInstructionsModal({ onClose }: Props) {
                 </li>
              </ul>
           </section>
+
+          <section className="bg-brand-50 p-4 rounded-xl border border-brand-100">
+             <h3 className="text-lg font-semibold text-brand-800 mb-3 flex items-center gap-2">
+               <BookOpen className="w-5 h-5" />
+               Qualidade da Captura Fotográfica
+             </h3>
+             <p className="text-sm text-slate-600 mb-4">
+               Para garantir uma predição algorítmica assertiva e evitar falsos diagnósticos da IA, a qualidade da sua otoscopia fotográfica é <strong>crítica</strong>. Imagens borradas, com cerume difuso bloqueando a visão total, ou ofuscadas por luz estourada reduzem drasticamente a precisão.
+             </p>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white rounded-lg p-3 border border-red-200">
+                   <div className="flex justify-between items-center mb-2">
+                     <span className="font-semibold text-red-600 text-sm">❌ Imagem Ruim</span>
+                     <span className="text-xs text-slate-400">Pouco foco e Desalinhada</span>
+                   </div>
+                   <img src="/src/assets/otoscopia_ruim.jpg" alt="Exemplo ruim" className="w-full aspect-square object-cover rounded shadow-sm opacity-90 border border-slate-100" />
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-emerald-200">
+                   <div className="flex justify-between items-center mb-2">
+                     <span className="font-semibold text-emerald-600 text-sm">✅ Imagem Boa</span>
+                     <span className="text-xs text-slate-400">Iluminação e Foco Perfeitos</span>
+                   </div>
+                   <img src="/src/assets/otoscopia_boa.jpg" alt="Exemplo bom" className="w-full aspect-square object-cover rounded shadow-sm border border-slate-100" />
+                </div>
+             </div>
+           </section>
         </div>
       </div>
     </div>
