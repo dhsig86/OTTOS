@@ -1,6 +1,6 @@
+cerume_obstrucao
 nao_otoscopica
 normal
-obstrucao
 otite_externa_aguda
 otite_media_aguda
 otite_media_cronica
