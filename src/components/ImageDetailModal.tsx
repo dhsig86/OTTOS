@@ -116,16 +116,49 @@ export function ImageDetailModal({ item, onClose }: Props) {
                 </button>
               )}
 
-              {drawnHotspots.length > 0 && (
+              {drawnHotspots.length > 0 && item.id.includes('cloud_') && (
+                <button 
+                  onClick={async () => {
+                     try {
+                        const dbId = item.id.split('_').pop();
+                        const formData = new FormData();
+                        
+                        // Importante: Tem que amarrar os que já existiam e os novos num Array único!
+                        // Mas calma, se a estrutura for item.hotspots[0], precisamos envolver
+                        const combinedLevel0 = [...loadedHotspots, ...drawnHotspots];
+                        const jsonHotspots = JSON.stringify(combinedLevel0);
+                        
+                        formData.append('svg_json', jsonHotspots);
+                        
+                        const apiURL = import.meta.env.VITE_AI_API_URL || 'http://127.0.0.1:8000';
+                        const res = await fetch(`${apiURL.replace(/\/$/, '')}/api/admin/atlas/${dbId}/svg`, { method: 'POST', body: formData });
+                        
+                        if ((await res.json()).success) {
+                           alert("🚀 Mapas Salvos e Sincronizados com a Nuvem NeonDB!");
+                           setDrawnHotspots([]); // reseta porque a próxima vez que carregar, vai puxar da prop
+                        } else {
+                           alert("Erro de salvamento na Rota.");
+                        }
+                     } catch(e) {
+                         alert(e);
+                     }
+                  }} 
+                  className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold transition-colors shadow shadow-emerald-500/20"
+                >
+                  Salvar na Nuvem
+                </button>
+              )}
+
+              {drawnHotspots.length > 0 && !item.id.includes('cloud_') && (
                 <button 
                   onClick={() => {
                      const codigo = JSON.stringify(drawnHotspots, null, 2);
                      navigator.clipboard.writeText(codigo);
-                     alert("Código SVG Vetorial Copiado! Cole no chat do Assistente AI.");
+                     alert("CÓDIGO COPIADO!\n\nComo essa é uma imagem Estática Nativa (e não de Nuvem), você precisa jogar este JSON no chat para a IA salvar permanentemente. Para pular esse passo no futuro, exclua a imagem nativa e upe-a pelo Mega-Estúdio.");
                   }} 
                   className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded text-xs font-bold transition-colors"
                 >
-                  Copiar Código Export
+                  Exportar Fonte Estática
                 </button>
               )}
             </div>

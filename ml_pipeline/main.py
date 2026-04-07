@@ -603,3 +603,23 @@ async def restore_atlas_item(item_id: int):
         return {"success": True}
     except Exception as e:
         return {"error": str(e)}
+
+@app.post("/api/admin/atlas/{item_id}/svg")
+async def update_atlas_svg(item_id: int, request: Request):
+    db_url = get_database_url()
+    if not db_url: return {"error": "Banco indisponivel"}
+    try:
+        form = await request.form()
+        svg_json = form.get("svg_json", "[]")
+
+        conn = psycopg2.connect(db_url, sslmode='require')
+        cur = conn.cursor()
+        cur.execute("UPDATE atlas_cloud_items SET svg_json = %s WHERE id = %s", (svg_json, item_id))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return {"success": True}
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return {"error": str(e)}
