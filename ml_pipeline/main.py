@@ -334,6 +334,10 @@ from typing import List, Optional
 async def donate_image(request: Request):
     form = await request.form()
     files = form.getlist("files")
+    if not files:
+        # Fallback agressivo para clientes com cache antigo rodando offline via SW
+        files = form.getlist("file")
+        
     diagnostic = form.get("diagnostic", "Desconhecido")
     clinical_case = form.get("clinical_case", "")
     
