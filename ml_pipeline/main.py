@@ -327,13 +327,13 @@ async def approve_image(payload: dict):
     except Exception as e:
         return {"error": str(e)}
 
-from typing import List
+from typing import List, Optional
 
 @app.post("/api/curadoria/donate")
 async def donate_image(
     files: List[UploadFile] = File(...),
     diagnostic: str = Form(...),
-    clinical_case: str = Form("")
+    clinical_case: Optional[str] = Form(default="")
 ):
     if not setup_cloudinary():
         return {"error": "Credenciais do Cloudinary malformadas."}
@@ -381,13 +381,14 @@ async def donate_image(
         return {"error": f"Erro interno da rota Donate: {str(e)}"}
 
 @app.post("/api/curadoria/feedback")
+@app.post("/api/feedback")
 async def feedback_image(
     feedbackImage: UploadFile = File(...),
     correctDiagnosis: str = Form(...),
     diagnosisCorrect: str = Form(...),
     predictedClasses: str = Form(...),
-    differentialDiagnosis: str = Form(""),
-    clinicalCase: str = Form("")
+    differentialDiagnosis: Optional[str] = Form(default=""),
+    clinicalCase: Optional[str] = Form(default="")
 ):
     """
     Ponto de entrada nativo central pra as predições do OTOSCOP-IA! 
