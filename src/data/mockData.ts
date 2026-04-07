@@ -187,13 +187,5 @@ export const atlasData: AtlasItem[] = [
       '/images/atlas_v4/cerume_obstrucao_v4_2.jpg'
     ],
     description: 'Elementos alheios ao corpo humano (insetos, algodão, massa de cerume impactada) bloqueando o canal auditivo.'
-  },
-  {
-    id: 'tubo_ventilacao',
-    pathology: 'Tubo de Ventilação (Diábolo)',
-    images: [
-      '/src/assets/otoscopia_boa.jpg' // Usando placeholder visual limpo temporário até upload V3
-    ],
-    description: 'Pequeno dispositivo cilíndrico microcirurgicamente inserido através do tímpano em casos de Otite Média Serosa persistente. Permite aeração da orelha média e drenagem de fluidos da trompa de eustáquio deficiente.'
   }
 ];
