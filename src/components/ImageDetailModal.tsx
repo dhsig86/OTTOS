@@ -11,7 +11,7 @@ export function ImageDetailModal({ item, onClose }: Props) {
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
   const [showHotspots, setShowHotspots] = useState(true);
   const [hoveredHotspot, setHoveredHotspot] = useState<SvgHotspot | null>(null);
-
+  const [svgViewBox, setSvgViewBox] = useState("0 0 1024 1024");
   // Mapeamento Autorativo Controlado
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -144,6 +144,12 @@ export function ImageDetailModal({ item, onClose }: Props) {
                 src={item.images[currentImageIdx]} 
                 alt={`${item.pathology} - Image ${currentImageIdx + 1}`} 
                 className="w-full h-full object-contain" 
+                onLoad={(e) => {
+                   const img = e.target as HTMLImageElement;
+                   if (img.naturalWidth && img.naturalHeight) {
+                      setSvgViewBox(`0 0 ${img.naturalWidth} ${img.naturalHeight}`);
+                   }
+                }}
                 style={{
                   maskImage: "radial-gradient(circle at center, black 80%, transparent 95%)",
                   WebkitMaskImage: "radial-gradient(circle at center, black 80%, transparent 95%)"
@@ -168,7 +174,7 @@ export function ImageDetailModal({ item, onClose }: Props) {
             {/* O SVG Overlay fica perfeitamente colado na imagem via aspect-square bind */}
            {(hasHotspots || isDrawing) && showHotspots && (
               <svg 
-                viewBox="0 0 1024 1024" 
+                viewBox={svgViewBox} 
                 preserveAspectRatio="xMidYMid meet"
                 className={`absolute inset-0 w-full h-full z-20 ${isDrawing ? 'cursor-crosshair pointer-events-auto' : 'pointer-events-none'}`}
                 onClick={handleSvgClick}
