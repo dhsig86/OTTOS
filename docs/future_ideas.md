@@ -29,3 +29,17 @@ Essa ramificação só deve ser iniciada e exposta no Frontend como "Beta/Ajude-
 
 ## 2. Normalizador Inteligente RegEx (Active Matching)
 Para evitar que parceiros salvem `otite média` e `Otite Media` criando pastas divergentes, o Backend deve possuir listas de sinônimos pesados e varredura RegEx para unificar o vocabulário, ou permitir que o App bloqueie free-text sugerindo Selects da CID-10 e guidelines.
+
+---
+
+## 3. Reconhecimento de Padrões e Módulo Real-Time (Hardware Chinês)
+*Proposto nas sprints de estabilização estrutural*
+
+**Ideia Central:**
+Evoluir o aspecto do Atlas e do Quiz introduzindo pipelines de inferência por Ensemble Learning, inspirando-se em metodologias provadas de visão computacional na otorrino:
+1. **Sumotosima**: Implementar um framework focado em reconhecimento restrito de padrões otoscópicos clássicos.
+2. **Identificação Ensemble/Real-Time (Paper: Efficient and accurate identification of ear diseases using an ensemble deep learning model)**: 
+   - Quebrar a limitação da foto "estática".
+   - Criar uma ponte no Frontend que conecte com a câmera do Windows (periférico USB).
+   - Acoplar o provedor diretamente a *otoscópios digitais chineses* de baixo custo.
+   - O aplicativo faria tracking ativo (Real-time feed) identificando e plotando as porcentagens das doenças no vídeo ao vivo. Isso transforma um otoscópio barato em uma ferramenta premium de AI edge computing.

@@ -3,10 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 import psycopg2
 import os
 import pathlib
-import cloudinary
-import cloudinary.uploader
-import onnxruntime as ort
-import numpy as np
 from PIL import Image
 import io
 
@@ -19,7 +15,10 @@ def get_database_url():
                     return line.strip().split("=", 1)[1]
     return os.environ.get("DATABASE_URL")
 
+cloudinary_config = {"cloud_name": None, "api_key": None, "api_secret": None}
+
 def setup_cloudinary():
+    global cloudinary_config
     env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
     c_url = os.environ.get("CLOUDINARY_URL")
     if not c_url and os.path.exists(env_path):
@@ -34,11 +33,50 @@ def setup_cloudinary():
             url_no_prefix = c_url.replace("cloudinary://", "")
             api_key, rest = url_no_prefix.split(":", 1)
             api_secret, cloud_name = rest.split("@", 1)
-            cloudinary.config(cloud_name=cloud_name, api_key=api_key, api_secret=api_secret)
+            cloudinary_config["api_key"] = api_key
+            cloudinary_config["api_secret"] = api_secret
+            cloudinary_config["cloud_name"] = cloud_name
             return True
         except Exception:
             return False
     return False
+
+def upload_to_cloudinary_rest(file_contents, folder):
+    global cloudinary_config
+    import time
+    import hashlib
+    import requests
+    
+    if not cloudinary_config.get("cloud_name"):
+        setup_cloudinary()
+        
+    cloud_name = cloudinary_config.get("cloud_name")
+    api_key = cloudinary_config.get("api_key")
+    api_secret = cloudinary_config.get("api_secret")
+    
+    if not cloud_name or not api_key or not api_secret:
+        raise Exception("Cloudinary variables are not properly loaded.")
+
+    timestamp = str(int(time.time()))
+    files = {'file': ('image.jpg', file_contents, 'image/jpeg')}
+    
+    params_to_sign = f"folder={folder}&timestamp={timestamp}{api_secret}"
+    signature = hashlib.sha1(params_to_sign.encode('utf-8')).hexdigest()
+
+    data = {
+        'api_key': api_key,
+        'timestamp': timestamp,
+        'folder': folder,
+        'signature': signature
+    }
+    
+    url = f"https://api.cloudinary.com/v1_1/{cloud_name}/image/upload"
+    response = requests.post(url, data=data, files=files, timeout=60)
+    
+    if response.status_code == 200:
+        return response.json().get("secure_url")
+    else:
+        raise Exception(f"Cloudinary REST API Error HTTP {response.status_code}: {response.text}")
 
 app = FastAPI(title="OTOSCOP-IA Engine", description="FastAPI Backend for ONNX Runtime")
 
@@ -58,24 +96,26 @@ app.include_router(cms_router)
 ort_session = None
 vocab = []
 
-@app.on_event("startup")
-async def load_model():
+def lazy_load_model():
     global ort_session, vocab
+    if ort_session is not None:
+        return
+        
+    import onnxruntime as ort
+        
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     model_path = os.path.join(BASE_DIR, "models", "otto_model.onnx")
     vocab_path = os.path.join(BASE_DIR, "models", "vocab.txt")
-    print("Iniciando motor híbrido ultraleve ONNX...")
+    print("Carregando Onnx de forma preguiçosa (Lazy Load)...")
     
     if os.path.exists(model_path) and os.path.exists(vocab_path):
         try:
             with open(vocab_path, "r", encoding="utf-8") as f:
                 vocab = [line.strip() for line in f if line.strip()]
             
-            # Otimização de Memória Crítica: Impedir spikes de RAM de "Constant Folding/Graph Optimization"
             opts = ort.SessionOptions()
             opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
             
-            # Carrega a Sessão de Inferência ONNX (Evapora 95% do uso de RAM do PyTorch) 
             ort_session = ort.InferenceSession(model_path, sess_options=opts, providers=['CPUExecutionProvider'])
             print(f"Sucesso Crítico! Cérebro ONNX Carregado. Vocabulário: {vocab}")
         except Exception as e:
@@ -85,12 +125,14 @@ async def load_model():
 
 @app.post("/api/predict")
 async def predict_image(file: UploadFile = File(...)):
+    lazy_load_model()
     if not ort_session or not vocab:
         return {"error": "O cérebro ONNX não está carregado. Verifique os logs do servidor."}
     
     contents = await file.read()
     
     try:
+        import numpy as np
         # Pre-processamento rigoroso de imagens matriciais ao estilo FastAI (3x224x224 RGB)
         img = Image.open(io.BytesIO(contents)).convert("RGB")
         img = img.resize((224, 224), Image.Resampling.BILINEAR)
@@ -386,6 +428,7 @@ async def donate_image(request: Request):
         conn = psycopg2.connect(db_url, sslmode='require')
         cur = conn.cursor()
         import json
+        import cloudinary.uploader
         
         uploaded_urls = []
         for file in files:
@@ -447,16 +490,11 @@ async def feedback_image(request: Request):
     try:
         contents = await feedbackImage.read()
         
-        # Upload para o Cloudinary (Fila quente de Curadoria)
-        upload_result = cloudinary.uploader.upload(
-            contents,
-            folder="otoscopia_curadoria_pendente",
-            resource_type="image"
-        )
+        # Upload para o Cloudinary Native (REST API Bypass Windows DLLs)
+        secure_url = upload_to_cloudinary_rest(contents, "otoscopia_curadoria_pendente")
         
-        secure_url = upload_result.get("secure_url")
         if not secure_url:
-            return {"error": "Falha de comunicação Cloudinary"}
+            return {"error": "Falha de comunicação Cloudinary API"}
             
         # Conexão NeonDB e Ingestão
         conn = psycopg2.connect(db_url, sslmode='require')
@@ -540,6 +578,7 @@ async def create_atlas_cloud_item(request: Request):
         return {"error": "DATABASE_URL do Neon não localizada."}
         
     try:
+        import cloudinary.uploader
         contents = await file.read()
         
         # 1. Envia para a plataforma Cloudinary Oficial (Na pasta CloudAtlas)
