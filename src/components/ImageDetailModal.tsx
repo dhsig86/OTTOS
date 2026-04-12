@@ -1,22 +1,34 @@
 import { useState, useEffect } from 'react';
 import { AtlasItem, SvgHotspot } from '../data/mockData';
-import { X, Eye, EyeOff, Lock, Trash2 } from 'lucide-react';
+import { X, Eye, EyeOff, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface Props {
   item: AtlasItem;
   onClose: () => void;
+  onNext?: () => void;
+  onPrev?: () => void;
 }
 
-export function ImageDetailModal({ item, onClose }: Props) {
+export function ImageDetailModal({ item, onClose, onNext, onPrev }: Props) {
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
   const [showHotspots, setShowHotspots] = useState(true);
   const [hoveredHotspot, setHoveredHotspot] = useState<SvgHotspot | null>(null);
   const [svgViewBox, setSvgViewBox] = useState("0 0 1024 1024");
-  // Mapeamento Autorativo Controlado
-  const [isAdminMode, setIsAdminMode] = useState(false);
+  
+  // Mapeamento Autorativo permanentemente aberto na V4
+  const [isAdminMode] = useState(true);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPathPoints, setCurrentPathPoints] = useState<string[]>([]);
   const [drawnHotspots, setDrawnHotspots] = useState<SvgHotspot[]>([]);
+
+  // Limpa o estado residual ao navegar para o lado
+  useEffect(() => {
+     setCurrentImageIdx(0);
+     setIsDrawing(false);
+     setCurrentPathPoints([]);
+     setDrawnHotspots([]);
+     setHoveredHotspot(null);
+  }, [item.id]);
 
   // Toda vez que muda a foto no carrossel, limpar desenhos temporários da foto antiga
   useEffect(() => {
@@ -67,34 +79,43 @@ export function ImageDetailModal({ item, onClose }: Props) {
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm"
       onClick={onClose}
     >
+      {/* Botão Nav Prev */}
+      {onPrev && (
+        <button 
+          onClick={(e) => { e.stopPropagation(); onPrev(); }} 
+          className="absolute left-2 md:left-6 top-1/2 -translate-y-1/2 p-2 md:p-3 bg-white/10 hover:bg-white/30 backdrop-blur-md rounded-full text-white z-50 shadow-lg border border-white/20 transition-all hover:scale-110"
+        >
+          <ChevronLeft className="w-8 h-8 md:w-10 md:h-10" />
+        </button>
+      )}
+
+      {/* Botão Nav Next */}
+      {onNext && (
+        <button 
+          onClick={(e) => { e.stopPropagation(); onNext(); }} 
+          className="absolute right-2 md:right-6 top-1/2 -translate-y-1/2 p-2 md:p-3 bg-white/10 hover:bg-white/30 backdrop-blur-md rounded-full text-white z-50 shadow-lg border border-white/20 transition-all hover:scale-110"
+        >
+          <ChevronRight className="w-8 h-8 md:w-10 md:h-10" />
+        </button>
+      )}
+
       <div 
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden relative"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden relative animate-in zoom-in-95"
         onClick={e => e.stopPropagation()}
       >
-        {/* Admin Secret Lock Button */}
+        {/* Menu do Desenho SVG ABERTO DE FATO */}
         <div className="absolute top-4 left-4 z-30 flex gap-2">
-          {!isAdminMode ? (
-            <button 
-              onClick={() => {
-                const pass = prompt("Código MLOps de Autoria:");
-                if (pass === "020786da") setIsAdminMode(true);
-              }}
-              className="bg-slate-900/50 hover:bg-slate-900 text-white/50 hover:text-white p-2 rounded-full transition-all border outline-none"
-              title="Desbloquear Edição Gráfica"
-            >
-              <Lock className="w-4 h-4" />
-            </button>
-          ) : (
+          {isAdminMode && (
             <div className="flex bg-slate-900 p-2 rounded-lg gap-2 shadow-lg items-center text-white">
               <span className="text-xs font-bold leading-none pr-2 border-r border-slate-700">Studio SVG</span>
               
               {!isDrawing ? (
                 <button 
                   onClick={() => setIsDrawing(true)} 
-                  className="px-3 py-1 bg-brand-500 hover:bg-brand-400 text-white rounded text-xs font-bold transition-colors"
+                  className="px-3 py-1 bg-brand-500 hover:bg-brand-400 text-white rounded text-xs font-bold transition-colors shadow shadow-brand-500/30"
                 >
                   Novo Polígono
                 </button>
@@ -116,28 +137,27 @@ export function ImageDetailModal({ item, onClose }: Props) {
                 </button>
               )}
 
-              {drawnHotspots.length > 0 && item.id.includes('cloud_') && (
+              {drawnHotspots.length > 0 && item.id.includes('v4_') && (
                 <button 
                   onClick={async () => {
                      try {
                         const dbId = item.id.split('_').pop();
-                        const formData = new FormData();
                         
-                        // Importante: Tem que amarrar os que já existiam e os novos num Array único!
-                        // Mas calma, se a estrutura for item.hotspots[0], precisamos envolver
                         const combinedLevel0 = [...loadedHotspots, ...drawnHotspots];
-                        const jsonHotspots = JSON.stringify(combinedLevel0);
-                        
-                        formData.append('svg_json', jsonHotspots);
+                        const payload = { svg_json: JSON.stringify(combinedLevel0) };
                         
                         const apiURL = import.meta.env.VITE_AI_API_URL || 'http://127.0.0.1:8000';
-                        const res = await fetch(`${apiURL.replace(/\/$/, '')}/api/admin/atlas/${dbId}/svg`, { method: 'POST', body: formData });
+                        const res = await fetch(`${apiURL.replace(/\/$/, '')}/api/cms/cases/${dbId}/svg`, { 
+                           method: 'PATCH', 
+                           headers: { 'Content-Type': 'application/json'},
+                           body: JSON.stringify(payload)
+                        });
                         
                         if ((await res.json()).success) {
                            alert("🚀 Mapas Salvos e Sincronizados com a Nuvem NeonDB!");
                            setDrawnHotspots([]); // reseta porque a próxima vez que carregar, vai puxar da prop
                         } else {
-                           alert("Erro de salvamento na Rota.");
+                           alert("Erro de salvamento na Rota V4.");
                         }
                      } catch(e) {
                          alert(e);
@@ -149,12 +169,44 @@ export function ImageDetailModal({ item, onClose }: Props) {
                 </button>
               )}
 
-              {drawnHotspots.length > 0 && !item.id.includes('cloud_') && (
+              {item.id.includes('v4_') && (loadedHotspots.length > 0 || drawnHotspots.length > 0) && (
+                <button 
+                  onClick={async () => {
+                     if (!confirm("Tem certeza que deseja apagar TODOS os marcações anatômicas desta imagem do banco de dados?")) return;
+                     try {
+                        const dbId = item.id.split('_').pop();
+                        const payload = { svg_json: "[]" };
+                        
+                        const apiURL = import.meta.env.VITE_AI_API_URL || 'http://127.0.0.1:8000';
+                        const res = await fetch(`${apiURL.replace(/\/$/, '')}/api/cms/cases/${dbId}/svg`, { 
+                           method: 'PATCH', 
+                           headers: { 'Content-Type': 'application/json'},
+                           body: JSON.stringify(payload)
+                        });
+                        
+                        if ((await res.json()).success) {
+                           alert("🗑️ Desenhos apagados da Nuvem!");
+                           setDrawnHotspots([]);
+                           // To visual reset without reload
+                           item.hotspots = []; 
+                           onClose(); // easy way out
+                        }
+                     } catch(e) {
+                         alert(e);
+                     }
+                  }} 
+                  className="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded text-xs font-bold transition-colors shadow shadow-rose-500/20"
+                >
+                  Apagar Mapas SVG
+                </button>
+              )}
+
+              {drawnHotspots.length > 0 && !item.id.includes('v4_') && (
                 <button 
                   onClick={() => {
                      const codigo = JSON.stringify(drawnHotspots, null, 2);
                      navigator.clipboard.writeText(codigo);
-                     alert("CÓDIGO COPIADO!\n\nComo essa é uma imagem Estática Nativa (e não de Nuvem), você precisa jogar este JSON no chat para a IA salvar permanentemente. Para pular esse passo no futuro, exclua a imagem nativa e upe-a pelo Mega-Estúdio.");
+                     alert("CÓDIGO COPIADO!\n\nComo essa é uma imagem legada, exclua a imagem nativa e faça upload pelo Mega-Estúdio.");
                   }} 
                   className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded text-xs font-bold transition-colors"
                 >
@@ -175,6 +227,28 @@ export function ImageDetailModal({ item, onClose }: Props) {
               {showHotspots ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
           )}
+
+          {item.id.includes('v4_') && (
+            <button 
+              onClick={async () => {
+                 if (!confirm("FOGO NO PARQUINHO! Deseja apagar este Caso Mestre inteiro do BD? Isso irá tira-lo do Atlas e do Quiz imediatamente.")) return;
+                 try {
+                    const dbId = item.id.split('_').pop();
+                    const apiURL = import.meta.env.VITE_AI_API_URL || 'http://127.0.0.1:8000';
+                    const res = await fetch(`${apiURL.replace(/\/$/, '')}/api/cms/cases/${dbId}`, { method: 'DELETE' });
+                    if ((await res.json()).success) {
+                       alert("Arquivo Executado e Apagado do Atlas!");
+                       window.location.reload(); // Simple sync trigger since we are outside contexts
+                    }
+                 } catch(e) { alert(e); }
+              }}
+              title="Apagar este Caso Clínico da Gen 4"
+              className="bg-white hover:bg-rose-50 text-rose-600 p-2 rounded-full shadow-md transition-colors border border-rose-100"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          )}
+
           <button 
             onClick={onClose}
             className="bg-white hover:bg-slate-100 text-slate-800 p-2 rounded-full shadow-md transition-colors border"

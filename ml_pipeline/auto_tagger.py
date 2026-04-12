@@ -66,10 +66,13 @@ def main():
         
     print("IA Pronta e carregada.")
 
-    # 2. Configurar Diretórios
-    source_dir = r"C:\Users\drdhs\OneDrive\Imagens\Otoscopio 2026\IMG"
-    if not os.path.exists(source_dir):
-        print(f"Erro: Diretório de massa {source_dir} não existe.")
+    # 2. Configurar Diretórios via Input Dinâmico
+    print("\n")
+    print("Por favor, digite ou cole o caminho da pasta com as fotos (ex: C:\\Imagens\\Lote 1)")
+    source_dir = input("Caminho da Pasta: ").strip()
+    
+    if not source_dir or not os.path.exists(source_dir):
+        print(f"Erro: Diretório de massa '{source_dir}' não existe.")
         return
         
     # Salvaremos na Public do React para ele conseguir "enxergar" as imagens locais sem precisar do Cloudinary!

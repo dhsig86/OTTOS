@@ -1,15 +1,62 @@
-import { useState } from 'react';
-import { quizQuestions } from '../data/quizData';
-import { ArrowRight, CheckCircle, XCircle, RotateCcw } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { quizQuestions as defaultQuiz } from '../data/quizData';
+import { ArrowRight, CheckCircle, XCircle, RotateCcw, Loader2 } from 'lucide-react';
 
 export function AtlasQuiz() {
+  const [questions, setQuestions] = useState<any[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [score, setScore] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const question = quizQuestions[currentQuestionIndex];
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      try {
+        const apiURL = import.meta.env.VITE_AI_API_URL || 'http://127.0.0.1:8000';
+        const res = await fetch(`${apiURL.replace(/\/$/, '')}/api/cms/cases`);
+        const data = await res.json();
+        
+        if (data.success && data.cases && data.cases.length >= 4) {
+             const allDiagnoses = Array.from(new Set(data.cases.map((c:any) => c.primary_diagnosis).filter(Boolean)));
+             
+             if (allDiagnoses.length >= 4) {
+                 const dynamicQuestions = data.cases
+                     .filter((c:any) => c.media_urls && c.media_urls.length > 0 && c.primary_diagnosis)
+                     .sort(() => 0.5 - Math.random()) 
+                     .slice(0, 10) 
+                     .map((c: any) => {
+                         const correct = c.primary_diagnosis;
+                         const wrongs = allDiagnoses.filter(d => d !== correct).sort(() => 0.5 - Math.random()).slice(0, 3);
+                         const options = [correct, ...wrongs].sort(() => 0.5 - Math.random());
+                         return {
+                             id: c.id,
+                             clinicalCase: c.clinical_history || "Exame Otoscópico - Qual o diagnóstico?",
+                             image: c.media_urls[0],
+                             options: options,
+                             correctOptionIndex: options.indexOf(correct),
+                             explanation: `Imagem classificada no Acervo Oficial Gen 4 como ${correct}.`
+                         };
+                     });
+                 
+                 if (dynamicQuestions.length > 0) {
+                     setQuestions(dynamicQuestions);
+                     setIsLoading(false);
+                     return;
+                 }
+             }
+        }
+      } catch(e) { console.error("Erro no Quiz Dinâmico:", e); }
+      
+      // Fallback
+      setQuestions(defaultQuiz);
+      setIsLoading(false);
+    };
+    fetchQuestions();
+  }, []);
+
+  const question = questions[currentQuestionIndex];
 
   const handleSelect = (index: number) => {
     if (isAnswered) return;
@@ -21,7 +68,7 @@ export function AtlasQuiz() {
   };
 
   const handleNext = () => {
-    if (currentQuestionIndex < quizQuestions.length - 1) {
+    if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setSelectedAnswer(null);
       setIsAnswered(false);
@@ -44,7 +91,7 @@ export function AtlasQuiz() {
         <h2 className="text-3xl font-bold text-slate-800 mb-2">Quiz Concluído!</h2>
         <p className="text-slate-600 mb-6 flex flex-col items-center gap-2">
           <span>Você acertou</span>
-          <span className="text-5xl font-black text-brand-600">{score} de {quizQuestions.length}</span>
+          <span className="text-5xl font-black text-brand-600">{score} de {questions.length}</span>
         </p>
         <button
           onClick={restartQuiz}
@@ -56,14 +103,26 @@ export function AtlasQuiz() {
     );
   }
 
-  return (
-    <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8 animate-in slide-in-from-bottom-4">
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-        <div className="p-4 bg-slate-50 border-b border-slate-200">
-          <span className="text-sm font-semibold text-slate-500">
-            Caso {currentQuestionIndex + 1} de {quizQuestions.length}
-          </span>
-        </div>
+      if (isLoading) {
+        return (
+          <div className="w-full text-center py-20 flex flex-col items-center justify-center text-brand-600">
+            <Loader2 className="w-10 h-10 animate-spin mb-4" />
+            <p className="font-bold">Gerando Prova Dinâmica V4...</p>
+          </div>
+        );
+      }
+
+      if (!question) return null;
+
+      return (
+        <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8 animate-in slide-in-from-bottom-4">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+            <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between">
+              <span className="text-sm font-semibold text-slate-500">
+                Caso {currentQuestionIndex + 1} de {questions.length}
+              </span>
+              {question.id && <span className="text-xs font-bold bg-brand-100 text-brand-700 px-2 py-0.5 rounded">GEN 4</span>}
+            </div>
         <div className="p-6 flex-1">
           <p className="text-lg font-medium text-slate-800 leading-relaxed mb-6">
             {question.clinicalCase}
@@ -84,7 +143,7 @@ export function AtlasQuiz() {
 
       <div className="flex flex-col gap-4">
         <h3 className="text-xl font-bold text-slate-800 mb-2">Qual o diagnóstico mais provável?</h3>
-        {question.options.map((option, index) => {
+        {question.options.map((option: string, index: number) => {
           const isSelected = selectedAnswer === index;
           const isCorrect = index === question.correctOptionIndex;
           
@@ -125,7 +184,7 @@ export function AtlasQuiz() {
                 onClick={handleNext}
                 className="bg-brand-500 hover:bg-brand-600 text-white px-6 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-transform hover:translate-x-1"
               >
-                {currentQuestionIndex < quizQuestions.length - 1 ? 'Próximo Caso' : 'Ver Resultado'}
+                {currentQuestionIndex < questions.length - 1 ? 'Próximo Caso' : 'Ver Resultado'}
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>

@@ -28,10 +28,10 @@ mapping = {
     "Naootoscopica": "nao_otoscopica",
     "nao_otoscopica": "nao_otoscopica",
     
-    # Obstrucao
-    "Obstrucao": "obstrucao",
-    "Obstrucao Auditiva": "obstrucao",
-    "Obstrução Auditiva-samples": "obstrucao",
+    # Cerume / Obstrucao
+    "Obstrucao": "cerume_obstrucao",
+    "Obstrucao Auditiva": "cerume_obstrucao",
+    "Obstrução Auditiva-samples": "cerume_obstrucao",
     
     # Otite Media Cronica
     "Otite Media Cronica": "otite_media_cronica",

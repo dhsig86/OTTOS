@@ -23,6 +23,10 @@ TAG_MAP = {
     'omc': 'Otite Média Crônica-samples',
     'cronica': 'Otite Média Crônica-samples',
     'perfuração': 'Otite Média Crônica-samples',
+    'otite_media_aguda': 'Otite Media Aguda-samples',
+    'otite_media_cronica': 'Otite Media Cronica-samples',
+    'cerume_obstrucao': 'Obstrução Auditiva-samples',
+    'corpo_estranho': 'Corpo Estranho-samples',
     'pele': 'nao_otoscopica',
     'rost': 'nao_otoscopica'
 }

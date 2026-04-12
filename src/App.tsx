@@ -1,27 +1,31 @@
 import { useState } from 'react'
-import { Lock } from 'lucide-react'
+import { Lock, Globe } from 'lucide-react'
 import { AtlasGrid } from './components/AtlasGrid'
-import { ImageDetailModal } from './components/ImageDetailModal'
 import { AtlasQuiz } from './components/AtlasQuiz'
 import { AIAnalyzer } from './components/AIAnalyzer'
-import { MLCuradoria } from './components/MLCuradoria'
-import { SVGStudio } from './components/SVGStudio'
+import { CurationHubV4 } from './components/CurationHubV4'
 import { OtoscopyInstructionsModal } from './components/OtoscopyInstructionsModal'
 import { CommunityDonation } from './components/CommunityDonation'
-import { AtlasItem } from './data/mockData'
 
 function App() {
-  const [selectedItem, setSelectedItem] = useState<AtlasItem | null>(null)
-  const [viewMode, setViewMode] = useState<'atlas' | 'quiz' | 'ia' | 'curadoria' | 'donation' | 'studio'>('atlas')
+  const [viewMode, setViewMode] = useState<'atlas' | 'quiz' | 'ia' | 'hub' | 'donation'>('atlas')
   const [showInstructions, setShowInstructions] = useState(false)
+
+  // Interruptor de Desenvolvimento: Coloque 'true' para pular checagem de senhas durante testes.
+  const DEV_MODE_AUTH = false;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center font-sans pb-10">
       <header className="w-full bg-brand-600 text-white p-6 shadow-md mb-6 sticky top-0 z-40">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">OTTO Atlas</h1>
-            <p className="text-brand-100 text-sm mt-1">Guia Clínico de Otoscopia interativo</p>
+          <div className="flex gap-4 items-center">
+            <div className="w-12 h-12 bg-white rounded-xl shadow-inner flex items-center justify-center p-2 transform rotate-3">
+              <Globe className="w-8 h-8 text-brand-600" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-black tracking-tight drop-shadow-md">HARTS OTTO ATLAS</h1>
+              <p className="text-brand-100 font-medium text-sm tracking-wide">Guia Clínico de Otoscopia Interativo</p>
+            </div>
           </div>
           <nav className="flex gap-2">
             <button 
@@ -50,17 +54,19 @@ function App() {
             </button>
             <button
               onClick={() => {
-                const pass = prompt("Sessão Administrativa MLOps. Insira a senha mestre:");
-                if (pass === "020786da") {
-                  setViewMode('curadoria');
-                } else if (pass === "svg") {
-                  setViewMode('studio');
-                } else if (pass !== null) {
-                  alert("Senha incorreta.");
+                if (DEV_MODE_AUTH) {
+                  setViewMode('hub');
+                } else {
+                  const pass = prompt("Sessão Administrativa. Insira a senha mestre:");
+                  if (pass === "020786da") {
+                    setViewMode('hub');
+                  } else if (pass !== null) {
+                    alert("Acesso Negado.");
+                  }
                 }
               }}
-              className={`p-2 rounded-lg hidden md:flex lg:flex items-center justify-center transition-colors ${(viewMode === 'curadoria' || viewMode === 'studio') ? 'bg-slate-900 text-white' : 'bg-brand-600 text-brand-200 hover:bg-slate-800'}`}
-              title="Acesso Restrito - Curadoria e Ferramentas"
+              className={`p-2 rounded-lg hidden md:flex lg:flex items-center justify-center transition-colors ${(viewMode === 'hub') ? 'bg-slate-900 text-white shadow-inner' : 'bg-brand-600 text-brand-200 hover:bg-slate-800'}`}
+              title="Acesso Restrito - Hub Administrativo e Curadoria V4"
             >
               <Lock className="w-5 h-5" />
             </button>
@@ -83,22 +89,13 @@ function App() {
                 Instruções do Exame
               </button>
             </div>
-            
-            <AtlasGrid onSelectItem={setSelectedItem} />
-            
-            {selectedItem && (
-              <ImageDetailModal 
-                item={selectedItem} 
-                onClose={() => setSelectedItem(null)} 
-              />
-            )}
+            <AtlasGrid />
           </>
         )}
 
         {viewMode === 'quiz' && <AtlasQuiz />}
         {viewMode === 'ia' && <AIAnalyzer />}
-        {viewMode === 'curadoria' && <MLCuradoria />}
-        {viewMode === 'studio' && <SVGStudio />}
+        {viewMode === 'hub' && <CurationHubV4 />}
         {viewMode === 'donation' && (
           <div className="w-full flex items-center justify-center mt-6">
             <CommunityDonation />
