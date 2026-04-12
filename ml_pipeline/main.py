@@ -92,9 +92,15 @@ app.add_middleware(
 from ml_pipeline.routers.cms import router as cms_router
 app.include_router(cms_router)
 
-# Variaveis de Memória Ultraleves (Apenas ONNX Session e Array de Strings)
+@app.get("/health", tags=["System"])
+def health_check():
+    """Health check para o Render.com monitorar o serviço."""
+    return {"status": "ok", "model_loaded": ort_session is not None}
+
+# Variáveis de Memória Ultraleves (Apenas ONNX Session e Array de Strings)
 ort_session = None
 vocab = []
+
 
 def lazy_load_model():
     global ort_session, vocab
