@@ -30,6 +30,7 @@ export function MLCuradoria() {
     'nao_otoscopica'
   ]);
 
+  /* 
   const handleSendToAtlasV4 = async (item: CurationItem) => {
     setIsUploading(true);
     const apiBase = getApiBase();
@@ -92,6 +93,7 @@ export function MLCuradoria() {
       setIsUploading(false);
     }
   };
+  */
 
   const handleZipUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
