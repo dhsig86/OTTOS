@@ -1,18 +1,67 @@
-# Configurações do React
-node_modules
-dist
+# ============================================================
+# OTTO ATLAS — .gitignore
+# Repositório contém apenas: Frontend (Vercel) + Backend (Render)
+# Mídia e modelos ML vivem em Cloudinary / Render Disk / fora do Git
+# ============================================================
+
+# --- Dependências ---
+node_modules/
+dist/
+
+# --- Variáveis de Ambiente (segredos) ---
 .env
+.env.local
+.env.*.local
 
-# Lixo de Ambiente Virtual ML e Backup de Banco de Dados
-ml_pipeline/venv
-__pycache__
-latest.dump
-*.sql
-*.dump
+# --- Modelos de ML (Render usa Disk persistente ou download sob demanda) ---
+*.onnx
+*.onnx.data
 *.pkl
+*.pt
+*.pth
+*.h5
+*.safetensors
 
-# Dados Sensíveis/Maciços do Heroku e do Computador Local 
+# --- Dados pesados / datasets ---
+*.zip
+*.tar.gz
+*.dump
+*.sql
+kaggle_export/
+OTTO_ML_Dataset/
+OTTO_ML_Dataset_Raw/
 ../OTTO_ML_Dataset
 ../APPROTTO
+
+# --- Logs e arquivos temporários ---
 *.log
-*.zip
+logs/*.txt
+temp_*.txt
+uvi_*.txt
+output_paths.txt
+
+# --- Cache Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+*.egg-info/
+.eggs/
+
+# --- Ambiente Virtual Python ---
+ml_pipeline/venv/
+venv/
+.venv/
+env/
+
+# --- IDEs e OS ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# --- Build artifacts ---
+*.pyc
+build/

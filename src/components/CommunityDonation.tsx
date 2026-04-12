@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { UploadCloud, CheckCircle, AlertCircle, FileImage, Send, X } from 'lucide-react';
 import { compressImage } from '../utils/imageCompressor';
+import { getApiBase } from '../services/api';
 
 export function CommunityDonation() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -62,10 +63,8 @@ export function CommunityDonation() {
       formData.append('diagnostic', diagnostic);
       if (clinicalCase) formData.append('clinical_case', clinicalCase);
       
-      // Enviando para a nossa nova rota nativa na Vercel -> Render backend
-      const baseAiUrl = import.meta.env.VITE_AI_API_URL || 'http://127.0.0.1:8000/api/predict';
-      const endpoint = `${baseAiUrl.replace('/api/predict', '').replace('/predict', '')}/api/curadoria/donate`;
-      
+      const endpoint = `${getApiBase()}/api/curadoria/donate`;
+
       const response = await fetch(endpoint, {
         method: 'POST',
         body: formData,

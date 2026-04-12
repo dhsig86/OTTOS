@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Database, ShieldCheck, Download, Trash2, CheckCircle2 } from 'lucide-react';
+import { getApiBase } from '../services/api';
 
 // Tipagem espelhando o banco de dados Legado (Postgres)
 interface CurationItem {
@@ -24,16 +25,80 @@ export function MLCuradoria() {
     'otite_media_aguda',
     'otite_media_cronica',
     'otite_externa_aguda',
-    'obstrucao',
+    'cerume_obstrucao',
+    'corpo_estranho',
     'nao_otoscopica'
   ]);
+
+  const handleSendToAtlasV4 = async (item: CurationItem) => {
+    setIsUploading(true);
+    const apiBase = getApiBase();
+    try {
+      let imgUrl = item.feedback_image_url;
+      if (!imgUrl.startsWith('http')) {
+        imgUrl = `${apiBase}${imgUrl}`;
+      }
+      const imgRes = await fetch(imgUrl);
+      const blob = await imgRes.blob();
+
+      const file = new File([blob], `curation_${item.id}.jpg`, { type: blob.type });
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const uploadRes = await fetch(`${apiBase}/api/cms/upload`, { method: 'POST', body: formData });
+      const uploadData = await uploadRes.json();
+      if (!uploadData.success) throw new Error(uploadData.detail || 'Falha no upload Cloudinary');
+
+      const finalClass = item.correct_diagnosis
+        ? item.correct_diagnosis.trim()
+        : item.predicted_classes
+          ? item.predicted_classes.split(',')[0].trim()
+          : 'Sem Classe';
+      const diagFormat = finalClass.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+      const payload = {
+        title: 'Diagnóstico: ' + diagFormat,
+        clinical_history: item.clinical_case || 'Caso auditado via MLOps.',
+        primary_diagnosis: diagFormat,
+        patient_demographics: {},
+        taxonomies: [],
+        media_urls: [uploadData.url],
+        svg_json: '[]',
+      };
+      const caseRes = await fetch(`${apiBase}/api/cms/cases`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const caseData = await caseRes.json();
+      if (!caseData.success) throw new Error('Falha ao salvar no NeonDB');
+
+      await fetch(`${apiBase}/api/curadoria/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: item.id,
+          image_url: item.feedback_image_url,
+          class_name: 'discarded_for_v4',
+          is_trash: true,
+        }),
+      });
+
+      setItems(prev => prev.filter(i => i.id !== item.id));
+      alert(`Sucesso! Foto injetada na nuvem V4 como ${diagFormat}. O Atlas V4 a exibirá instantaneamente.`);
+    } catch (err) {
+      alert('Erro ao enviar para API V4: ' + err);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleZipUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     if (!file.name.toLowerCase().endsWith('.zip')) {
-      alert("Operação bloqueada: Selecione apenas arquivos .zip contendo as pastas categorizadas.");
+      alert('Operação bloqueada: Selecione apenas arquivos .zip contendo as pastas categorizadas.');
       return;
     }
 
@@ -42,35 +107,34 @@ export function MLCuradoria() {
     formData.append('file', file);
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/curadoria/upload-zip', {
+      const response = await fetch(`${getApiBase()}/api/curadoria/upload-zip`, {
         method: 'POST',
-        body: formData
+        body: formData,
       });
       const data = await response.json();
-      
+
       if (data.error) {
         alert(`Erro de Ingestão: ${data.error}`);
       } else {
         alert(data.success);
       }
     } catch (err) {
-      alert("Falha ao comunicar com o servidor PyTorch. Ele está rodando?");
+      alert('Falha ao comunicar com o servidor PyTorch. Ele está rodando?');
     } finally {
       setIsUploading(false);
-      // Resetar input
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
   useEffect(() => {
     const fetchClasses = async () => {
       try {
-        const res = await fetch('http://127.0.0.1:8000/api/curadoria/classes');
+        const res = await fetch(`${getApiBase()}/api/curadoria/classes`);
         const data = await res.json();
         if (data.classes && data.classes.length > 0) {
           setOficialClasses(data.classes);
         }
       } catch (e) {
-        console.warn("Could not fetch dynamic classes from backend", e);
+        console.warn('Could not fetch dynamic classes from backend', e);
       }
     };
     fetchClasses();
@@ -78,16 +142,16 @@ export function MLCuradoria() {
   useEffect(() => {
     const fetchPendingImages = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:8000/api/curadoria/pending');
+        const response = await fetch(`${getApiBase()}/api/curadoria/pending`);
         const data = await response.json();
-        
+
         if (data.error) {
-          console.error("Postgres Error:", data.error);
+          console.error('Postgres Error:', data.error);
         } else {
           setItems(data);
         }
       } catch (err) {
-        console.error("API Connection Error:", err);
+        console.error('API Connection Error:', err);
       } finally {
         setIsLoading(false);
       }
@@ -95,28 +159,29 @@ export function MLCuradoria() {
     fetchPendingImages();
   }, []);
 
-  const processItem = async (item: CurationItem, isTrash: boolean) => {
-    // UI Optimistic Update
+  const processItem = async (item: CurationItem, destinationTier: 'trash' | 'atlas' | 'quiz' | 'pure_ml') => {
     setItems(prev => prev.filter(i => i.id !== item.id));
 
     try {
-      // Pega o diagnóstico corrigido pelo Admin ou cai no fallback
-      const finalClass = item.correct_diagnosis ? item.correct_diagnosis.trim() : item.predicted_classes.split(',')[0].trim();
+      const finalClass = item.correct_diagnosis
+        ? item.correct_diagnosis.trim()
+        : item.predicted_classes.split(',')[0].trim();
 
-      const response = await fetch('http://127.0.0.1:8000/api/curadoria/approve', {
+      const response = await fetch(`${getApiBase()}/api/curadoria/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: item.id,
           image_url: item.feedback_image_url,
           class_name: finalClass,
-          is_trash: isTrash
-        })
+          is_trash: destinationTier === 'trash',
+          destination_tier: destinationTier,
+        }),
       });
       const data = await response.json();
       if (data.error) console.error(data.error);
-    } catch(err) {
-      console.error("Falha ao comunicar com o servidor", err);
+    } catch (err) {
+      console.error('Falha ao comunicar com o servidor', err);
     }
   };
 
@@ -134,13 +199,10 @@ export function MLCuradoria() {
     }
   };
 
-  const handleApprove = (item: CurationItem) => {
-    processItem(item, false);
-  };
-
-  const handleDiscard = (item: CurationItem) => {
-    processItem(item, true);
-  };
+  const handleDiscard = (item: CurationItem) => processItem(item, 'trash');
+  const handleApprovePureMl = (item: CurationItem) => processItem(item, 'pure_ml');
+  const handleApproveQuiz = (item: CurationItem) => processItem(item, 'quiz');
+  const handleApproveAcervo = (item: CurationItem) => processItem(item, 'atlas');
 
   return (
     <div className="w-full max-w-5xl mx-auto p-4 md:p-6 animate-in fade-in">
@@ -237,20 +299,34 @@ export function MLCuradoria() {
                   <p className="text-slate-500 line-clamp-2"><span className="font-semibold text-slate-700">Nota:</span> {item.clinical_case}</p>
                 </div>
                 
-                <div className="mt-auto grid grid-cols-2 gap-2">
+                <div className="mt-auto grid grid-cols-2 md:grid-cols-4 gap-2">
                   <button 
                     onClick={() => handleDiscard(item)}
-                    className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl font-bold text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors border border-transparent hover:border-red-100"
+                    className="flex justify-center items-center py-2 rounded-lg font-bold text-slate-500 hover:bg-rose-50 hover:text-rose-600 border border-transparent hover:border-rose-100 text-[10px] uppercase transition-all"
+                    title="Excluir (Lixo)"
                   >
-                    <Trash2 className="w-4 h-4" />
-                    Lixo
+                    <Trash2 className="w-3 h-3 mr-1" /> Apagar
                   </button>
                   <button 
-                    onClick={() => handleApprove(item)}
-                    className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl font-bold text-white bg-slate-900 hover:bg-brand-600 transition-colors shadow-sm hover:shadow"
+                    onClick={() => handleApprovePureMl(item)}
+                    className="flex justify-center items-center py-2 rounded-lg font-bold text-white bg-slate-800 hover:bg-slate-700 shadow-sm text-[10px] uppercase transition-all"
+                    title="Apenas Kaggle"
                   >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Aprovar
+                    🤖 Só IA
+                  </button>
+                  <button 
+                    onClick={() => handleApproveQuiz(item)}
+                    className="flex justify-center items-center py-2 rounded-lg font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-sm text-[10px] uppercase transition-all"
+                    title="Kaggle + Quiz"
+                  >
+                    ❓ Pro Quiz
+                  </button>
+                  <button 
+                    onClick={() => handleApproveAcervo(item)}
+                    className="flex justify-center items-center py-2 rounded-lg font-bold text-white bg-teal-600 hover:bg-teal-500 shadow-sm text-[10px] uppercase transition-all"
+                    title="Acervo + Quiz + Kaggle"
+                  >
+                    <CheckCircle2 className="w-3 h-3 mr-1" /> Acervo
                   </button>
                 </div>
               </div>
