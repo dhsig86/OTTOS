@@ -89,8 +89,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from ml_pipeline.routers.cms import router as cms_router
+try:
+    # Contexto: rodando da raiz do repo (uvicorn ml_pipeline.main:app)
+    from ml_pipeline.routers.cms import router as cms_router
+except ModuleNotFoundError:
+    # Contexto: Render com Root Directory = ml_pipeline/ (uvicorn main:app)
+    from routers.cms import router as cms_router  # type: ignore
 app.include_router(cms_router)
+
 
 @app.get("/health", tags=["System"])
 def health_check():

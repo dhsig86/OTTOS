@@ -3,7 +3,11 @@ from pydantic import BaseModel
 import psycopg2
 import json
 
-from ml_pipeline.main import get_database_url, setup_cloudinary, upload_to_cloudinary_rest
+try:
+    from ml_pipeline.main import get_database_url, setup_cloudinary, upload_to_cloudinary_rest
+except ModuleNotFoundError:
+    from main import get_database_url, setup_cloudinary, upload_to_cloudinary_rest  # type: ignore
+
 
 router = APIRouter(prefix="/api/cms", tags=["CMS Gen 4.0"])
 
