@@ -115,9 +115,9 @@ def lazy_load_model():
         
     import onnxruntime as ort
 
-    # Em produção (Render Starter Disk), o modelo fica em /opt/otto_models
+    # Em produção (Render Starter Disk), o modelo fica em /var/data
     # Em desenvolvimento local, fica em ml_pipeline/models/
-    RENDER_DISK_PATH = "/opt/otto_models"
+    RENDER_DISK_PATH = "/var/data"
     LOCAL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
     BASE_DIR = RENDER_DISK_PATH if os.path.isdir(RENDER_DISK_PATH) else LOCAL_PATH
 
