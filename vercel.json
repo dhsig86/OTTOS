@@ -1,0 +1,7 @@
+{
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- src/ index.html vite.config.ts tsconfig.json package.json .env.production"
+}
