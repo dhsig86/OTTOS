@@ -5,6 +5,9 @@ import os
 import pathlib
 from PIL import Image
 import io
+import time
+import hashlib
+import requests
 
 def get_database_url():
     env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
@@ -43,9 +46,6 @@ def setup_cloudinary():
 
 def upload_to_cloudinary_rest(file_contents, folder):
     global cloudinary_config
-    import time
-    import hashlib
-    import requests
     
     if not cloudinary_config.get("cloud_name"):
         setup_cloudinary()
@@ -102,11 +102,16 @@ def lazy_load_model():
         return
         
     import onnxruntime as ort
-        
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.join(BASE_DIR, "models", "otto_model.onnx")
-    vocab_path = os.path.join(BASE_DIR, "models", "vocab.txt")
-    print("Carregando Onnx de forma preguiçosa (Lazy Load)...")
+
+    # Em produção (Render Starter Disk), o modelo fica em /opt/otto_models
+    # Em desenvolvimento local, fica em ml_pipeline/models/
+    RENDER_DISK_PATH = "/opt/otto_models"
+    LOCAL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
+    BASE_DIR = RENDER_DISK_PATH if os.path.isdir(RENDER_DISK_PATH) else LOCAL_PATH
+
+    model_path = os.path.join(BASE_DIR, "otto_model.onnx")
+    vocab_path = os.path.join(BASE_DIR, "vocab.txt")
+    print(f"Carregando ONNX de: {BASE_DIR}")
     
     if os.path.exists(model_path) and os.path.exists(vocab_path):
         try:
@@ -117,19 +122,20 @@ def lazy_load_model():
             opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
             
             ort_session = ort.InferenceSession(model_path, sess_options=opts, providers=['CPUExecutionProvider'])
-            print(f"Sucesso Crítico! Cérebro ONNX Carregado. Vocabulário: {vocab}")
+            print(f"Sucesso! Cérebro ONNX Carregado. Vocabulário: {vocab}")
         except Exception as e:
             print(f"Erro Fatal ONNX: {e}")
     else:
-        print(f"Alerta: Arquivos ONNX ou Vocab não encontrados.")
+        print(f"Alerta: Modelo ONNX não encontrado em {BASE_DIR}. Verifique o Render Disk ou ml_pipeline/models/.")
+
 
 @app.post("/api/predict")
-async def predict_image(file: UploadFile = File(...)):
+def predict_image(file: UploadFile = File(...)):
     lazy_load_model()
     if not ort_session or not vocab:
         return {"error": "O cérebro ONNX não está carregado. Verifique os logs do servidor."}
     
-    contents = await file.read()
+    contents = file.file.read()
     
     try:
         import numpy as np
