@@ -1,0 +1,21 @@
+# Vercel só precisa do frontend React/Vite
+# Ignorar tudo que é exclusivo do backend Render ou do Python
+
+# Backend Python (Render cuida disso)
+requirements.txt
+ml_pipeline/
+Procfile
+
+# Scripts de manutenção e debug
+scripts/
+logs/
+
+# Docs e arquivos de configuração não necessários no build
+docs/
+auditoria_rag_inconsistencias.md
+
+# Dataset e modelos ML
+*.onnx
+*.pkl
+*.zip
+*.dump
