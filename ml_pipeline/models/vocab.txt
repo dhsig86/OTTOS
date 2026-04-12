@@ -1,8 +1,9 @@
-cerume_obstrucao
-nao_otoscopica
-normal
-otite_externa_aguda
-otite_media_aguda
-otite_media_cronica
-otite_media_serosa
-tubo_de_ventilacao
+CERUME OBSTRUCAO
+NAO OTOSCOPICA
+NORMAL
+OTITE EXTERNA AGUDA
+OTITE MEDIA AGUDA
+OTITE MEDIA CRONICA
+OTITE MEDIA SEROSA
+TIMPANOESCLEROSE
+TUBO DE VENTILACAO

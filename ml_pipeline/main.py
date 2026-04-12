@@ -51,6 +51,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from ml_pipeline.routers.cms import router as cms_router
+app.include_router(cms_router)
+
 # Variaveis de Memória Ultraleves (Apenas ONNX Session e Array de Strings)
 ort_session = None
 vocab = []
@@ -68,8 +71,12 @@ async def load_model():
             with open(vocab_path, "r", encoding="utf-8") as f:
                 vocab = [line.strip() for line in f if line.strip()]
             
+            # Otimização de Memória Crítica: Impedir spikes de RAM de "Constant Folding/Graph Optimization"
+            opts = ort.SessionOptions()
+            opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
+            
             # Carrega a Sessão de Inferência ONNX (Evapora 95% do uso de RAM do PyTorch) 
-            ort_session = ort.InferenceSession(model_path, providers=['CPUExecutionProvider'])
+            ort_session = ort.InferenceSession(model_path, sess_options=opts, providers=['CPUExecutionProvider'])
             print(f"Sucesso Crítico! Cérebro ONNX Carregado. Vocabulário: {vocab}")
         except Exception as e:
             print(f"Erro Fatal ONNX: {e}")
@@ -261,68 +268,92 @@ def get_dynamic_classes():
 async def approve_image(payload: dict):
     '''
     Recebe imagem da aba de Curadoria, Remove do Banco (marcando como visto),
-    e se aprovada, Baixa do Cloudinary direto pra pasta de Treino e Normaliza.
+    e se aprovada, insere no clinical_cases no NeonDB com tag 'ml_only'.
+    Faz o upload no Cloudinary se a imagem for um path local.
     '''
-    import requests
     import time
-    import unicodedata
-    import re
-    import shutil
+    import json
+    import os
+    import cloudinary.uploader
     
-    def normalize_class_name(name: str) -> str:
-        n = ''.join(c for c in unicodedata.normalize('NFD', name) if unicodedata.category(c) != 'Mn')
-        n = re.sub(r'[^a-zA-Z0-9\s_]', '', n)
-        return '_'.join(n.lower().split())
-        
     try:
         record_id = payload.get("id")
         image_url = payload.get("image_url")
         class_name = payload.get("class_name")
         is_trash = payload.get("is_trash", False)
+        destination_tier = payload.get("destination_tier", "pure_ml") # 'atlas', 'quiz', ou 'pure_ml'
         
-        # 1. Apagar da fila de Pendentes no PostgreSQL Legado
         db_url = get_database_url()
-        if db_url and record_id:
-            conn = psycopg2.connect(db_url, sslmode='require')
-            cur = conn.cursor()
-            # Deletamos pra não poluir mais a caixa de entrada da curadoria
-            cur.execute("DELETE FROM feedback WHERE id = %s", (record_id,))
-            conn.commit()
+        if not db_url or not record_id:
+            return {"error": "Falta DB_URL ou Record ID."}
+            
+        conn = psycopg2.connect(db_url, sslmode='require')
+        cur = conn.cursor()
+        
+        # 1. Apagar da fila de Pendentes
+        cur.execute("DELETE FROM feedback WHERE id = %s", (record_id,))
+        conn.commit()
+        
+        if is_trash:
             cur.close()
             conn.close()
+            return {"success": "Caso Lixo descartado de Pendentes."}
             
-        if is_trash:
-            return {"success": "Caso Lixo descartado da base."}
-            
-        # 2. Se Aprovado: Fazer Download físico do Cloudinary para o Cérebro OU mover arquivo Local
-        norm_class = normalize_class_name(class_name) if class_name else "Unknown"
-        base_dir = r"C:\Users\drdhs\OneDrive\Documentos\ottoatlas\OTTO_ML_Dataset_Raw"
-        class_dir = os.path.join(base_dir, norm_class)
-        os.makedirs(class_dir, exist_ok=True)
-        
+        # 2. Se Aprovado: Checar a media e Upar se for Local
+        final_url = image_url
         if image_url.startswith("/"):
-            # É um arquivo local gerado pelo auto_tagger.py
             src_file = os.path.join(os.path.dirname(__file__), "..", "public", image_url.lstrip("/"))
             if os.path.exists(src_file):
-                dest_file = os.path.join(class_dir, f"curada_local_{int(time.time()*1000)}.jpg")
-                shutil.copy2(src_file, dest_file)
+                import uuid
+                new_name = f"loteML_{uuid.uuid4().hex[:8]}"
+                res = cloudinary.uploader.upload(
+                    src_file,
+                    folder="curadoria_gen4",
+                    public_id=new_name,
+                    resource_type="image"
+                )
+                final_url = res.get("secure_url")
+                if not final_url:
+                    cur.close()
+                    conn.close()
+                    return {"error": "Falha upload Cloudinary do repositório local."}
                 try:
-                    os.remove(src_file) # Limpa a caixa de entrada
-                except:
-                    pass
-                return {"success": f"Local Imagem salva no Acervo: {norm_class}"}
+                    os.remove(src_file)  # Limpa do inbox
+                except: pass
             else:
-                return {"error": "A imagem local não foi encontrada no disco."}
-        else:
-            # É uma URL oficial do Cloudinary
-            response = requests.get(image_url)
-            if response.status_code == 200:
-                dest_file = os.path.join(class_dir, f"curada_{int(time.time()*1000)}.jpg")
-                with open(dest_file, "wb") as f:
-                    f.write(response.content)
-                return {"success": f"Cloud Imagem salva no Acervo: {norm_class}"}
-            else:
-                return {"error": "Falha ao baixar do Cloudinary."}
+                cur.close()
+                conn.close()
+                return {"error": "Arquivo local ausente na fila física."}
+                
+        # 3. Inserir no clinical_cases
+        title_case = class_name.title() if class_name else "Sem Diagnóstico"
+        
+        taxonomies_arr = []
+        if destination_tier == "pure_ml":
+            taxonomies_arr = ["pure_ml"]
+        elif destination_tier == "quiz":
+            taxonomies_arr = ["quiz_only"]
+        
+        cur.execute("""
+            INSERT INTO clinical_cases 
+            (title, clinical_history, primary_diagnosis, taxonomies, media_urls, svg_json)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            title_case,
+            "Validado por Curadoria Assistida (Auto-Tag). Reviso pelo Especialista.",
+            class_name,
+            json.dumps(taxonomies_arr),
+            json.dumps([final_url]),
+            "[]"
+        ))
+        
+        new_case_id = cur.fetchone()[0]
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return {"success": f"Nuvem ML Validada! Gerado Gen 4 #{new_case_id}", "case_id": new_case_id}
             
     except Exception as e:
         return {"error": str(e)}

@@ -15,16 +15,16 @@ def test_predict():
         print("Error testing predict:", e)
 
 def test_donate():
-    print("\nTesting /api/curadoria/donate")
+    print("\nTesting /api/curadoria/donate without clinical_case (simulating older frontend version)")
+    import requests
     try:
         with open("dummy.jpg", "rb") as f:
             files = [("files", ("dummy.jpg", f, "image/jpeg"))]
-            data = {"diagnostic": "normal", "clinical_case": "test"}
+            data = {"diagnostic": "OMA"} # Missing clinical_case entirely!
             r = requests.post("https://otto-atlas.onrender.com/api/curadoria/donate", files=files, data=data)
             print("Donate response:", r.status_code, r.text[:200])
     except Exception as e:
         print("Error testing donate:", e)
 
 if __name__ == "__main__":
-    test_predict()
     test_donate()

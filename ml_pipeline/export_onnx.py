@@ -7,7 +7,7 @@ from fastai.vision.all import load_learner
 import os
 import pathlib
 
-model_path = r'C:\Users\drdhs\OneDrive\Documentos\ottoatlas\otto-atlas-web\ml_pipeline\models\otto_diagnostic_model.pkl'
+model_path = r'C:\Users\drdhs\OneDrive\Documentos\ottoatlas\otto-atlas-web\ml_pipeline\models\export.pkl'
 onnx_path = r'C:\Users\drdhs\OneDrive\Documentos\ottoatlas\otto-atlas-web\ml_pipeline\models\otto_model.onnx'
 vocab_path = r'C:\Users\drdhs\OneDrive\Documentos\ottoatlas\otto-atlas-web\ml_pipeline\models\vocab.txt'
 
@@ -27,16 +27,7 @@ print("Vocabulario Salvo:", vocab)
 
 import torch.nn as nn
 
-class FixedConcatPool(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.ap = nn.AvgPool2d(7)
-        self.mp = nn.MaxPool2d(7)
-    def forward(self, x):
-        return torch.cat([self.mp(x), self.ap(x)], 1)
-
-# Substituir agressivamente a camada problemática do fastai pela nossa estática para forçar a exportação
-learn.model[1][0] = FixedConcatPool()
+# learn.model[1][0] = FixedConcatPool()
 pytorch_model = learn.model.eval()
 
 import shutil
@@ -54,7 +45,7 @@ torch.onnx.export(
     temp_onnx,
     export_params=True,
     opset_version=14,
-    do_constant_folding=True,
+    do_constant_folding=False, # Impede RAM spikes em shape inference / optimization
     input_names=['input'],
     output_names=['output']
 )
