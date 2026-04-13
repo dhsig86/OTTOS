@@ -31,8 +31,8 @@ export function SVGStudio() {
   const fetchV4Cases = async () => {
       setIsLoadingManage(true);
       try {
-         const apiURL = import.meta.env.VITE_AI_API_URL || 'http://127.0.0.1:8000';
-         const res = await fetch(`${apiURL.replace(/\/$/, '')}/api/cms/cases`);
+         const { getApiBase } = await import('../services/api');
+         const res = await fetch(`${getApiBase()}/api/cms/cases`);
          const data = await res.json();
          if(data.success && data.cases) {
              setCloudItems(data.cases);
@@ -120,9 +120,9 @@ export function SVGStudio() {
       if (!editingCase) return;
       setIsSavingCloud(true);
       try {
+          const { getApiBase } = await import('../services/api');
           const payload = { svg_json: JSON.stringify(savedPolygons) };
-          const apiURL = import.meta.env.VITE_AI_API_URL || 'http://127.0.0.1:8000';
-          const res = await fetch(`${apiURL.replace(/\/$/, '')}/api/cms/cases/${editingCase.id}`, { 
+          const res = await fetch(`${getApiBase()}/api/cms/cases/${editingCase.id}`, { 
                method: 'PATCH', 
                headers: { 'Content-Type': 'application/json'},
                body: JSON.stringify(payload)
