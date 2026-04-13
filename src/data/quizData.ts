@@ -91,7 +91,7 @@ export const quizQuestions: QuizQuestion[] = [
   {
     id: 'q11',
     clinicalCase: 'Criança de 5 anos retorna ao otorrino pediatra seis meses após procedimento cirúrgico por histórico arrastado de Otite Média Serosa refratária. Mãe relata que a criança ouve perfeitamente bem agora. Na otoscopia, nota-se adereço artificial perfeitamente acoplado à membrana, mantendo equalização barométrica.',
-    image: '/src/assets/otoscopia_boa.jpg', /* Placeholder para a imagem perfeita do tubo */
+    image: '/images/atlas_v3/Normal_3.jpg', /* Trocado de assets provisório para evitar 404 Vercel */
     options: ['Corpo Estranho Retido', 'Tubo de Ventilação (Carretel de Shepard)', 'Colesteatoma Congênito', 'Miringosclerose Densa'],
     correctOptionIndex: 1,
     explanation: 'A identificação direta do tubo de ventilação (diábolo) pérvio e bem posicionado na membrana timpânica, corroborada por histórico clínico de tratamento para otites mucosas secretoras, refuta corpo estranho acidental e confirma o sucesso cirúrgico.'
