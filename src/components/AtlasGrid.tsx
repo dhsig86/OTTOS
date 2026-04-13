@@ -59,7 +59,7 @@ export function AtlasGrid() {
                 pathology: c.primary_diagnosis || c.title,
                 description: c.clinical_history || '',
                 images: c.media_urls && c.media_urls.length > 0 ? c.media_urls : [],
-                hotspots: parsedHotspots, // flat — sem double-array
+                hotspots: [parsedHotspots], // Wrap em array duplo para casar com o React Modal
               };
             });
           setItems(mappedItems);
