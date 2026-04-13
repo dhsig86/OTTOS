@@ -1,126 +1,42 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MousePointer2, Cloud, Trash2, Undo2, CheckCircle2, List, RefreshCw } from 'lucide-react';
-import { atlasData } from '../data/mockData';
+import { MousePointer2, Cloud, Trash2, Undo2, CheckCircle2, List, RefreshCw, PenTool, Edit3, X } from 'lucide-react';
 
 interface Point { x: number; y: number }
-interface SavedPolygon { label: string; path: string; }
+interface SvgHotspot { id: string; label: string; path: string; color?: string; }
+
+const COLORS = [
+  { val: '#10b981', name: 'Neon Green', desc: 'Contraste com Tecido Inflamado' },
+  { val: '#06b6d4', name: 'Bright Cyan', desc: 'Destaque de Ossículos' },
+  { val: '#8b5cf6', name: 'Electric Violet', desc: 'Destaque de Perfurações' },
+  { val: '#eab308', name: 'Lemon Yellow', desc: 'Marcação de Exsudato' },
+];
 
 export function SVGStudio() {
-  const [activeTab, setActiveTab] = useState<'upload' | 'manage'>('upload');
+  const [activeTab, setActiveTab] = useState<'edit_v4' | 'upload'>('edit_v4');
   
-  // Upload State
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  // V4 Cloud Cases State
+  const [cloudItems, setCloudItems] = useState<any[]>([]);
+  const [isLoadingManage, setIsLoadingManage] = useState(false);
+  const [editingCase, setEditingCase] = useState<any>(null); // Se não for null, abre a Mesa de Edição SVG
+  
+  // Mesa de Edição SVG State
   const [points, setPoints] = useState<Point[]>([]);
-  const [savedPolygons, setSavedPolygons] = useState<SavedPolygon[]>([]);
-  const [pathology, setPathology] = useState("");
-  const [description, setDescription] = useState("");
-  const [isUploading, setIsUploading] = useState(false);
+  const [savedPolygons, setSavedPolygons] = useState<SvgHotspot[]>([]);
+  const [activeColor, setActiveColor] = useState(COLORS[0].val);
+  const [svgViewBox, setSvgViewBox] = useState("0 0 1024 1024");
+  const [isSavingCloud, setIsSavingCloud] = useState(false);
   const imageRef = useRef<HTMLImageElement>(null);
 
-  // Manage State
-  const [cloudItems, setCloudItems] = useState<any[]>([]);
-  const [trashItems, setTrashItems] = useState<any[]>([]);
-  const [isLoadingManage, setIsLoadingManage] = useState(false);
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setSelectedFile(file);
-      const url = URL.createObjectURL(file);
-      setImageSrc(url);
-      setPoints([]);
-      setSavedPolygons([]);
-    }
-  };
-
-  const handleCanvasClick = (e: React.MouseEvent<HTMLImageElement>) => {
-    if (!imageRef.current) return;
-    const rect = imageRef.current.getBoundingClientRect();
-    const scaleX = imageRef.current.naturalWidth / rect.width;
-    const scaleY = imageRef.current.naturalHeight / rect.height;
-
-    const x = Math.round((e.clientX - rect.left) * scaleX);
-    const y = Math.round((e.clientY - rect.top) * scaleY);
-    
-    setPoints([...points, { x, y }]);
-  };
-
-  const generateSVGPath = (pts: Point[]) => {
-    if (pts.length === 0) return '';
-    if (pts.length === 1) {
-      const { x, y } = pts[0];
-      return `M ${x},${y} m -8,0 a 8,8 0 1,0 16,0 a 8,8 0 1,0 -16,0`;
-    }
-    const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
-    const p0 = pts[0];
-    return `${path} L ${p0.x},${p0.y} Z`;
-  };
-
-  const handleFinishPolygon = () => {
-    if (points.length === 0) return;
-    const label = prompt("Qual o nome desta Estrutura mapeada?") || "Estrutura";
-    setSavedPolygons([...savedPolygons, { label, path: generateSVGPath(points) }]);
-    setPoints([]);
-  };
-
-  const deleteSavedPolygon = (index: number) => {
-    setSavedPolygons(savedPolygons.filter((_, i) => i !== index));
-  };
-
-  const saveToAtlasCloud = async () => {
-    if (!selectedFile) return;
-    let finalArray = [...savedPolygons];
-    if (points.length > 0) {
-        finalArray.push({ label: "Estrutura não nomeada", path: generateSVGPath(points) });
-        setPoints([]);
-    }
-
-    const jsonHotspots = JSON.stringify(finalArray.map((sp, i) => ({
-      id: `spot_${Date.now()}_${i}`,
-      label: sp.label,
-      path: sp.path
-    })));
-
-    setIsUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-      formData.append('pathology', pathology || 'Caso Genérico');
-      formData.append('description', description || '');
-      formData.append('svg_json', jsonHotspots);
-
-      const apiURL = import.meta.env.VITE_AI_API_URL || 'http://127.0.0.1:8000';
-      const endpoint = `${apiURL.replace(/\/$/, '')}/api/admin/atlas`;
-
-      const response = await fetch(endpoint, { method: 'POST', body: formData });
-      const data = await response.json();
-      
-      if (!response.ok || data.error) throw new Error(data.error || "HTTP Erro");
-
-      alert("🚀 Sucesso! Arquivado no Atlas Cloud!");
-      setImageSrc(null); setSelectedFile(null); setSavedPolygons([]); setPoints([]); 
-      setPathology(""); setDescription("");
-
-    } catch (err: any) {
-      alert("❌ Falha no Upload Administrativo:\n" + err.message);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  // --- GERENCIAMENTO NUVEM ---
-  const fetchManageData = async () => {
+  // ---------- FETCH V4 CASES ----------
+  const fetchV4Cases = async () => {
       setIsLoadingManage(true);
       try {
          const apiURL = import.meta.env.VITE_AI_API_URL || 'http://127.0.0.1:8000';
-         const [resAtlas, resTrash] = await Promise.all([
-             fetch(`${apiURL.replace(/\/$/, '')}/api/atlas`),
-             fetch(`${apiURL.replace(/\/$/, '')}/api/admin/atlas/trash`)
-         ]);
-         const [dataAtlas, dataTrash] = await Promise.all([resAtlas.json(), resTrash.json()]);
-         if(dataAtlas.success) setCloudItems(dataAtlas.items);
-         if(dataTrash.success) setTrashItems(dataTrash.items);
+         const res = await fetch(`${apiURL.replace(/\/$/, '')}/api/cms/cases`);
+         const data = await res.json();
+         if(data.success && data.cases) {
+             setCloudItems(data.cases);
+         }
       } catch(e) {
          console.error(e);
       } finally {
@@ -129,168 +45,303 @@ export function SVGStudio() {
   };
 
   useEffect(() => {
-     if (activeTab === 'manage') fetchManageData();
+     if (activeTab === 'edit_v4') fetchV4Cases();
   }, [activeTab]);
 
-  const handleSoftDelete = async (id: string) => {
-      if(!confirm("Mover foto para a lixeira?")) return;
+  // ---------- ABRIR CURADORIA EM CASO ----------
+  const openEditor = (item: any) => {
+      let parsedSpots: SvgHotspot[] = [];
       try {
-         const apiURL = import.meta.env.VITE_AI_API_URL || 'http://127.0.0.1:8000';
-         const res = await fetch(`${apiURL.replace(/\/$/, '')}/api/admin/atlas/${id}`, { method: 'DELETE' });
-         const data = await res.json();
-         if(data.success) fetchManageData();
-         else alert(data.error);
-      } catch(e) { alert(e); }
+          if (Array.isArray(item.svg_json)) parsedSpots = item.svg_json;
+          else if (typeof item.svg_json === 'string') parsedSpots = JSON.parse(item.svg_json);
+      } catch (e) { parsedSpots = []; }
+      
+      setSavedPolygons(Array.isArray(parsedSpots) ? parsedSpots : []);
+      setPoints([]);
+      setEditingCase(item);
   };
 
-  const handleRestore = async (id: string) => {
+  const closeEditor = () => {
+      setEditingCase(null);
+      setSavedPolygons([]);
+      setPoints([]);
+      fetchV4Cases(); // Atualiza a galeria
+  };
+
+  // ---------- LÓGICA DO SVG SUAVE (Bézier Quadrática) ----------
+  const handleCanvasClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!imageRef.current) return;
+    const svg = e.currentTarget;
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return;
+    const loc = pt.matrixTransform(ctm.inverse());
+    setPoints([...points, { x: Math.round(loc.x), y: Math.round(loc.y) }]);
+  };
+
+  // Transforma os cliques com arestas num caminho curvilíneo e orgânico
+  const generateSmoothPath = (pts: Point[]) => {
+    if (pts.length === 0) return '';
+    if (pts.length === 1) return `M ${pts[0].x},${pts[0].y} m -8,0 a 8,8 0 1,0 16,0 a 8,8 0 1,0 -16,0`;
+    
+    let path = `M ${pts[0].x},${pts[0].y}`;
+    for (let i = 1; i < pts.length; i++) {
+        const p1 = pts[i - 1];
+        const p2 = pts[i];
+        const xc = (p1.x + p2.x) / 2;
+        const yc = (p1.y + p2.y) / 2;
+        path += ` Q ${p1.x},${p1.y} ${xc},${yc}`;
+    }
+    path += ` L ${pts[pts.length - 1].x},${pts[pts.length - 1].y} Z`;
+    return path;
+  };
+
+  const handleFinishPolygon = () => {
+    if (points.length === 0) return;
+    const label = prompt("⚕️ Etiqueta de Segmentação (ex: 'Cabo do Martelo', 'Abaulamento Cístico'):") || "Estrutura";
+    setSavedPolygons([...savedPolygons, { 
+        id: `spot_${Date.now()}`, 
+        label, 
+        path: generateSmoothPath(points), 
+        color: activeColor 
+    }]);
+    setPoints([]);
+  };
+
+  const deleteSavedPolygon = (id: string) => {
+    if(!confirm("Remover esta estrutura visual?")) return;
+    setSavedPolygons(savedPolygons.filter((s) => s.id !== id));
+  };
+
+  // ---------- PATCH NO NEON DB ----------
+  const patchToV4Cloud = async () => {
+      if (!editingCase) return;
+      setIsSavingCloud(true);
       try {
-         const apiURL = import.meta.env.VITE_AI_API_URL || 'http://127.0.0.1:8000';
-         const res = await fetch(`${apiURL.replace(/\/$/, '')}/api/admin/atlas/${id}/restore`, { method: 'POST' });
-         const data = await res.json();
-         if(data.success) fetchManageData();
-         else alert(data.error);
-      } catch(e) { alert(e); }
+          const payload = { svg_json: JSON.stringify(savedPolygons) };
+          const apiURL = import.meta.env.VITE_AI_API_URL || 'http://127.0.0.1:8000';
+          const res = await fetch(`${apiURL.replace(/\/$/, '')}/api/cms/cases/${editingCase.id}`, { 
+               method: 'PATCH', 
+               headers: { 'Content-Type': 'application/json'},
+               body: JSON.stringify(payload)
+          });
+          
+          const data = await res.json();
+          if (data.success) {
+              alert("🚀 Metadados SVG perfeitamente salvos no Acervo NeonDB!");
+              closeEditor();
+          } else {
+              throw new Error("Falha no Endpoint V4");
+          }
+      } catch (e:any) {
+          alert("Ocorreu um erro ao salvar o SVG na nuvem: " + e.message);
+      } finally {
+          setIsSavingCloud(false);
+      }
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl overflow-hidden mt-6 border border-brand-100 animate-in fade-in zoom-in w-full max-w-5xl mx-auto">
-      {/* HEADER E TABS */}
-      <div className="bg-slate-50 border-b border-slate-200 p-6 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-            <div className="bg-brand-50 p-2 rounded-lg"><MousePointer2 className="w-6 h-6 text-brand-600" /></div>
-            <div>
-            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">Mega-Estúdio Atlas CMS <Cloud className="w-5 h-5 text-blue-500" /></h2>
-            <p className="text-sm text-slate-500">Mapeie patologias ou gerencie o banco Nuvem Oficial.</p>
-            </div>
-        </div>
-        <div className="flex gap-2 bg-white p-1 rounded-xl shadow-sm border border-slate-200">
-            <button onClick={()=>setActiveTab('upload')} className={`px-4 py-2 font-bold text-sm rounded-lg transition ${activeTab === 'upload' ? 'bg-brand-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>Upload Novo</button>
-            <button onClick={()=>setActiveTab('manage')} className={`px-4 py-2 font-bold text-sm rounded-lg transition ${activeTab === 'manage' ? 'bg-brand-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>Gerenciar Nuvem</button>
-        </div>
-      </div>
-
-      <div className="p-6">
-        {/* ABA UPLOAD */}
-        {activeTab === 'upload' && (
-            <div className="space-y-4">
-                <input type="file" accept="image/*" onChange={handleImageUpload} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 transition cursor-pointer" />
-
-                {imageSrc && (
-                <div className="flex flex-col xl:flex-row gap-6">
-                    <div className="relative border-2 border-dashed border-slate-300 rounded-lg overflow-hidden cursor-crosshair inline-block bg-black shadow-inner">
-                    <img ref={imageRef} src={imageSrc} onClick={handleCanvasClick} alt="Mapeamento" className="max-w-[500px] h-auto pointer-events-auto select-none" draggable={false} />
-                    <svg className="absolute inset-0 pointer-events-none" viewBox={imageRef.current ? `0 0 ${imageRef.current.naturalWidth} ${imageRef.current.naturalHeight}` : "0 0 100 100"}>
-                        {savedPolygons.map((sp, idx) => ( <path key={`saved_${idx}`} d={sp.path} fill="rgba(16, 185, 129, 0.2)" stroke="#10b981" strokeWidth="3" /> ))}
-                        {points.length > 0 && ( <path d={generateSVGPath(points)} fill="rgba(8, 145, 178, 0.4)" stroke="#0891b2" strokeWidth="3" strokeDasharray="6,6" /> )}
-                        {points.map((p, idx) => ( <circle key={idx} cx={p.x} cy={p.y} r="6" fill="#0284c7" /> ))}
-                    </svg>
-                    </div>
-                    
-                    <div className="flex flex-col gap-3 flex-1 min-w-[300px]">
-                    <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
-                        <div className="p-3 border-b border-slate-200 bg-white"><p className="text-xs font-bold text-slate-500 uppercase">Ficha Clínica do Atlas</p></div>
-                        <div className="p-4 space-y-3">
-                            <div>
-                                <label className="text-xs font-semibold text-slate-600 mb-1 block">Classe / Patologia (Selecione ou Digite)</label>
-                                <input 
-                                    type="text" 
-                                    list="pathology-options"
-                                    className="w-full rounded-md border-slate-300 text-sm focus:border-brand-500 focus:ring-brand-500 shadow-sm" 
-                                    placeholder="Ex: Otite Média Serosa"
-                                    value={pathology}
-                                    onChange={(e) => setPathology(e.target.value)}
-                                />
-                                <datalist id="pathology-options">
-                                    {atlasData.map(d => <option key={d.id} value={d.pathology} />)}
-                                </datalist>
-                            </div>
-                            <div>
-                                <label className="text-xs font-semibold text-slate-600 mb-1 block">O que o clínico deve observar?</label>
-                                <textarea 
-                                    className="w-full rounded-md border-slate-300 text-sm focus:border-brand-500 focus:ring-brand-500 shadow-sm min-h-[80px]" 
-                                    placeholder="Descrição completa para legendas do Atlas."
-                                    value={description}
-                                    onChange={(e) => setDescription(e.target.value)}
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                        <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs text-brand-600 font-bold uppercase">Polígono ({points.length} pts)</p>
-                        <div className="flex gap-2">
-                            <button onClick={() => setPoints(points.slice(0, -1))} disabled={points.length === 0} className="text-amber-600 hover:text-amber-800 disabled:opacity-30"><Undo2 size={16} /></button>
-                            <button onClick={() => setPoints([])} disabled={points.length === 0} className="text-rose-600 hover:text-rose-800 disabled:opacity-30"><Trash2 size={16} /></button>
-                        </div>
-                        </div>
-                        <button onClick={handleFinishPolygon} disabled={points.length === 0} className="w-full bg-slate-800 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-slate-900 flex justify-center gap-2 disabled:opacity-50 mt-2"><CheckCircle2 size={16} /> Finalizar Marcação</button>
-                    </div>
-
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex-1 flex flex-col justify-between">
-                        <div>
-                            <p className="text-xs text-emerald-600 font-bold mb-2 uppercase">Máscaras Salvas ({savedPolygons.length})</p>
-                            <div className="space-y-2 mb-4">
-                                {savedPolygons.map((sp, idx) => (
-                                <div key={idx} className="flex justify-between bg-white border border-slate-200 p-2 rounded text-xs gap-2">
-                                    <span className="font-semibold text-slate-700 truncate">{sp.label}</span>
-                                    <button onClick={() => deleteSavedPolygon(idx)} className="text-rose-500 hover:bg-rose-50 p-1 rounded"><Trash2 size={14}/></button>
-                                </div>
-                                ))}
-                            </div>
-                        </div>
-                        <button onClick={saveToAtlasCloud} disabled={isUploading || !selectedFile} className="w-full bg-blue-600 text-white rounded-lg px-4 py-3 shadow-lg text-sm font-bold hover:bg-blue-700 transition flex justify-center gap-2 disabled:opacity-50 mt-4">
-                        {isUploading ? <><Cloud className="animate-bounce" /> Enviando...</> : <><Cloud size={18} /> Publicar na Nuvem</>}
-                        </button>
-                    </div>
-
-                    </div>
+    <div className="bg-slate-900 rounded-2xl shadow-2xl overflow-hidden mt-6 animate-in fade-in w-full max-w-7xl mx-auto border border-slate-700">
+      
+      {/* SE MODO EDITOR ESTIVER FECHADO, MOSTRA HEADER E MENU */}
+      {!editingCase && (
+        <div className="bg-slate-800 border-b border-slate-700 p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-md z-10 relative">
+            <div className="flex items-center gap-4 text-white">
+                <div className="bg-slate-700 p-3 rounded-xl border border-slate-600 shadow-inner"><PenTool className="w-6 h-6 text-brand-400" /></div>
+                <div>
+                <h2 className="text-xl font-black flex items-center gap-2">Mega-Estúdio SVG <span className="bg-brand-500 text-[10px] px-2 py-0.5 rounded-full uppercase">Gen 4.0</span></h2>
+                <p className="text-sm text-slate-400 font-medium">Plataforma clínica para desenhar perímetros orgânicos no Acervo V4.</p>
                 </div>
-                )}
             </div>
-        )}
+            <div className="flex gap-2 bg-slate-900 p-1.5 rounded-xl shadow-inner border border-slate-700">
+                <button onClick={()=>setActiveTab('edit_v4')} className={`px-4 py-2 font-bold text-sm rounded-lg transition-transform hover:scale-105 ${activeTab === 'edit_v4' ? 'bg-brand-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}>Visualizar Acervo V4</button>
+            </div>
+        </div>
+      )}
 
-        {/* ABA GERENCIAR */}
-        {activeTab === 'manage' && (
-             <div className="animate-in fade-in slide-in-from-right-4">
-                 <div className="flex justify-between mb-4 items-center">
-                    <h3 className="font-bold text-slate-800 flex items-center gap-2"><List size={18} /> Fotos Ativas na Nuvem</h3>
-                    <button onClick={fetchManageData} className="text-sm bg-slate-100 text-slate-600 px-3 py-1 rounded hover:bg-slate-200 flex gap-2 items-center"><RefreshCw size={14} className={isLoadingManage?"animate-spin":""} /> Atualizar</button>
-                 </div>
-                 
-                 {cloudItems.length === 0 && !isLoadingManage && <p className="text-slate-500 text-sm mb-6">Nenhuma foto adicionada na nuvem.</p>}
-                 
-                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-                     {cloudItems.map(item => (
-                         <div key={item.id} className="relative bg-slate-100 rounded-lg overflow-hidden border border-slate-200 group">
-                             <img src={item.image_url} alt={item.pathology} className="w-full aspect-square object-cover" />
-                             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex flex-col justify-center items-center p-2 text-center gap-2">
-                                 <span className="text-white font-bold text-xs">{item.pathology}</span>
-                                 <button onClick={()=>handleSoftDelete(item.id)} className="bg-rose-600 text-white text-xs px-2 py-1 rounded hover:bg-rose-700 flex items-center gap-1"><Trash2 size={12}/> Excluir</button>
-                             </div>
+      {/* --- MESA DE EDIÇÃO ATIVA --- */}
+      {editingCase && (
+          <div className="flex flex-col h-[85vh] bg-slate-950 animate-in slide-in-from-right-8 relative">
+              {/* HEADER DO EDITOR */}
+              <div className="flex justify-between items-center bg-slate-900 border-b border-slate-800 p-4 shrink-0">
+                  <div className="flex items-center gap-3">
+                      <button onClick={closeEditor} className="p-2 bg-slate-800 hover:bg-rose-900 hover:text-rose-400 text-slate-400 rounded-lg transition"><X className="w-5 h-5"/></button>
+                      <h3 className="text-slate-200 font-bold hidden md:block">Editando: <span className="text-brand-400">{editingCase.primary_diagnosis || editingCase.title}</span></h3>
+                  </div>
+                  
+                  <div className="flex gap-3">
+                      <button onClick={() => setPoints(points.slice(0, -1))} disabled={points.length === 0} className="text-slate-400 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 p-2 rounded-lg transition"><Undo2 className="w-5 h-5" /></button>
+                      <button onClick={() => setPoints([])} disabled={points.length === 0} className="text-rose-400 bg-slate-800 hover:bg-slate-700 border border-slate-700 disabled:opacity-30 p-2 rounded-lg transition"><Trash2 className="w-5 h-5" /></button>
+                      <button onClick={handleFinishPolygon} disabled={points.length === 0} className="bg-brand-500 hover:bg-brand-400 text-white font-bold px-4 py-2 rounded-lg disabled:opacity-50 transition flex items-center gap-2 shadow-lg"><CheckCircle2 className="w-5 h-5" /> Fechar Polígono</button>
+                  </div>
+              </div>
+
+              {/* ÁREA DE DESENHO E SIDEBAR */}
+              <div className="flex flex-1 overflow-hidden">
+                  
+                  {/* CANVAS SVG (Centro) */}
+                  <div className="flex-1 bg-black relative flex justify-center items-center overflow-hidden group">
+                     {editingCase.media_urls && editingCase.media_urls.length > 0 ? (
+                         <>
+                            <img 
+                                ref={imageRef} 
+                                src={editingCase.media_urls[0]} 
+                                alt="Caso" 
+                                onLoad={(e) => setSvgViewBox(`0 0 ${e.currentTarget.naturalWidth} ${e.currentTarget.naturalHeight}`)}
+                                className="w-full h-full object-contain pointer-events-none" 
+                            />
+                            {/* SVG Camada Integrada */}
+                            <svg 
+                                viewBox={svgViewBox} 
+                                preserveAspectRatio="xMidYMid meet"
+                                className="absolute inset-0 w-full h-full cursor-crosshair z-10"
+                                onClick={handleCanvasClick}
+                            >
+                                {/* Shapes Salvos */}
+                                {savedPolygons.map((sp) => {
+                                    const pathColor = sp.color || '#ffffff';
+                                    return (
+                                        <g key={sp.id} className="pointer-events-auto group/spot">
+                                            <path 
+                                                d={sp.path} 
+                                                fillRule="evenodd"
+                                                className="fill-transparent stroke-[3] transition-all hover:stroke-[5] drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]" 
+                                                style={{ stroke: pathColor }}
+                                            />
+                                        </g>
+                                    );
+                                })}
+
+                                {/* Desenho Ativo (Rascunho) */}
+                                {points.length > 0 && (
+                                    <path 
+                                        d={generateSmoothPath(points)} 
+                                        fill="transparent" 
+                                        stroke={activeColor} 
+                                        strokeWidth="4" 
+                                        strokeDasharray="6 6" 
+                                        className="drop-shadow-lg"
+                                    />
+                                )}
+
+                                {/* Nós Ativos */}
+                                {points.map((p, idx) => ( 
+                                    <circle key={idx} cx={p.x} cy={p.y} r="8" fill={activeColor} stroke="#000" strokeWidth="2" /> 
+                                ))}
+                            </svg>
+                         </>
+                     ) : (
+                         <div className="text-slate-500">Imagem não carregada.</div>
+                     )}
+                  </div>
+
+                  {/* SIDEBAR DE EDIÇÃO (Direita) */}
+                  <div className="w-80 bg-slate-900 border-l border-slate-800 flex flex-col shrink-0 overflow-y-auto hidden lg:flex">
+                     
+                     <div className="p-5 border-b border-slate-800">
+                         <p className="text-xs text-slate-400 font-black uppercase tracking-wider mb-4">1. Paleta de Semântica</p>
+                         <div className="grid grid-cols-2 gap-3">
+                             {COLORS.map((col) => (
+                                 <button 
+                                     key={col.val}
+                                     onClick={()=>setActiveColor(col.val)}
+                                     title={col.desc}
+                                     className={`p-3 rounded-xl border-2 transition-all flex flex-col gap-1 items-start shadow-inner ${activeColor === col.val ? 'border-white bg-slate-800 scale-105' : 'border-slate-700/50 bg-slate-900 opacity-60 hover:opacity-100 hover:border-slate-500'}`}
+                                 >
+                                     <div className="w-full h-8 rounded-md shadow-inner" style={{backgroundColor: col.val}}></div>
+                                     <span className="text-[10px] text-slate-300 font-bold uppercase truncate w-full pt-1">{col.name}</span>
+                                 </button>
+                             ))}
                          </div>
-                     ))}
-                 </div>
+                     </div>
 
-                 {/* LIXEIRA */}
-                 <div className="border-t border-rose-100 pt-6">
-                    <h3 className="font-bold text-rose-800 flex items-center gap-2 mb-4"><Trash2 size={18}/> Lixeira de Recuperação (Últimas 5)</h3>
-                    {trashItems.length === 0 && !isLoadingManage && <p className="text-rose-400 text-sm">A lixeira está vazia.</p>}
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                        {trashItems.map(item => (
-                            <div key={item.id} className="relative bg-rose-50 rounded-lg overflow-hidden border border-rose-200 group opacity-75 hover:opacity-100">
-                                <img src={item.image_url} className="w-full aspect-square object-cover grayscale" />
-                                <div className="absolute inset-0 flex flex-col justify-center items-center p-2 text-center bg-black/40">
-                                    <button onClick={()=>handleRestore(item.id)} className="bg-emerald-600 text-white text-[10px] uppercase font-bold px-2 py-1 rounded hover:bg-emerald-700 flex items-center gap-1"><Undo2 size={12}/> Restaurar</button>
+                     <div className="p-5 flex-1 flex flex-col">
+                         <p className="text-xs text-slate-400 font-black uppercase tracking-wider mb-4">2. Mapas Arquivados ({savedPolygons.length})</p>
+                         <div className="space-y-3 mb-6 flex-1">
+                            {savedPolygons.length === 0 && <p className="text-slate-600 text-sm italic">Nenhum polígono desenhado.</p>}
+                            {savedPolygons.map((sp) => (
+                                <div key={sp.id} className="bg-slate-800 border border-slate-700 p-3 rounded-xl flex items-center justify-between group/card shadow-sm hover:border-slate-500 transition">
+                                    <div className="flex items-center gap-3 overflow-hidden">
+                                        <div className="w-4 h-4 rounded-full min-w-[16px] shadow-sm border border-slate-600" style={{backgroundColor: sp.color || '#fff'}}></div>
+                                        <span className="text-sm font-semibold text-slate-200 truncate">{sp.label}</span>
+                                    </div>
+                                    <button onClick={()=>deleteSavedPolygon(sp.id)} className="text-rose-500 bg-slate-900 border border-slate-700 hover:bg-rose-500 hover:text-white p-1.5 rounded-lg transition shadow">
+                                        <Trash2 size={14}/>
+                                    </button>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
-                 </div>
-             </div>
-        )}
-      </div>
+                            ))}
+                         </div>
+
+                         <div className="pt-4 border-t border-slate-800">
+                            <button 
+                              onClick={patchToV4Cloud} 
+                              disabled={isSavingCloud} 
+                              className="w-full bg-blue-600 border border-blue-500 text-white rounded-xl px-4 py-4 shadow-lg shadow-blue-900/50 hover:shadow-blue-900 text-sm font-black hover:bg-blue-500 transition flex items-center justify-center gap-2 uppercase tracking-wide disabled:opacity-50"
+                            >
+                              {isSavingCloud ? <><RefreshCw className="animate-spin w-5 h-5" /> Aplicando PATCH...</> : <><Cloud className="w-5 h-5" /> Salvar Tudo Acervo V4</>}
+                            </button>
+                         </div>
+                     </div>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* --- ABA ACERVO V4 --- */}
+      {!editingCase && activeTab === 'edit_v4' && (
+         <div className="p-6">
+            <div className="flex justify-between items-center mb-6">
+               <h3 className="text-lg font-bold text-slate-300 flex items-center gap-2"><Edit3 className="w-5 h-5 text-brand-500" /> Selecione o Caso para Pintar</h3>
+               <button onClick={fetchV4Cases} className="flex items-center gap-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 text-sm font-semibold py-2 px-4 rounded-lg transition">
+                  <RefreshCw size={16} className={isLoadingManage ? "animate-spin" : ""} /> Recarregar Acervo
+               </button>
+            </div>
+            
+            {cloudItems.length === 0 && !isLoadingManage && (
+                <div className="text-center py-20 bg-slate-800/50 rounded-2xl border border-slate-800 border-dashed">
+                    <p className="text-slate-400 font-medium">Não há casos cadastrados no Acervo Cloudinary/Neon.</p>
+                </div>
+            )}
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+               {cloudItems.map(item => {
+                   let spCount = 0;
+                   try {
+                     const sp = typeof item.svg_json === 'string' ? JSON.parse(item.svg_json) : item.svg_json;
+                     if(Array.isArray(sp)) spCount = sp.length;
+                   } catch(e) {}
+
+                   return (
+                   <div 
+                      key={item.id} 
+                      onClick={() => openEditor(item)}
+                      className="group cursor-pointer bg-slate-800 rounded-xl overflow-hidden border border-slate-700 hover:border-brand-500 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-brand-500/10 relative"
+                   >
+                       <div className="aspect-square bg-black w-full overflow-hidden relative">
+                           {item.media_urls && item.media_urls.length > 0 ? (
+                               <img src={item.media_urls[0]} alt={item.primary_diagnosis} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition" />
+                           ) : (
+                               <div className="w-full h-full flex justify-center items-center bg-slate-900 text-slate-600">Sem Foto</div>
+                           )}
+                           
+                           {spCount > 0 && (
+                               <div className="absolute top-2 right-2 bg-brand-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-md border border-brand-400">
+                                   {spCount} Shape{spCount !== 1 && 's'}
+                               </div>
+                           )}
+                       </div>
+                       
+                       <div className="p-3">
+                           <h4 className="text-slate-200 font-bold text-xs truncate mb-1">{item.primary_diagnosis || item.title || "Sem Classe"}</h4>
+                           <p className="text-brand-500 text-[10px] font-black uppercase tracking-wider group-hover:underline">Abrir Mesa de Edição</p>
+                       </div>
+                   </div>
+               )})}
+            </div>
+         </div>
+      )}
     </div>
   );
 }
