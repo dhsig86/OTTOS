@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MousePointer2, Cloud, Trash2, Undo2, CheckCircle2, List, RefreshCw, PenTool, Edit3, X } from 'lucide-react';
+import { Cloud, Trash2, Undo2, CheckCircle2, RefreshCw, PenTool, Edit3, X } from 'lucide-react';
 
 interface Point { x: number; y: number }
 interface SvgHotspot { id: string; label: string; path: string; color?: string; }

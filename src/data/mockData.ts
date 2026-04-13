@@ -2,6 +2,7 @@ export type SvgHotspot = {
   id: string;
   label: string;
   path: string; // Coordinate path string
+  color?: string;
 };
 
 export type AtlasItem = {
