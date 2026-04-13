@@ -214,7 +214,11 @@ export function AtlasQuiz() {
           </span>
           <div className="flex gap-2 items-center">
               <span className="text-xs font-bold bg-brand-100 text-brand-700 px-2 py-1 rounded shadow-sm">Benchmarking</span>
-              {question.id && <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-1 flex items-center gap-1 rounded shadow-sm"><Loader2 className="w-3 h-3" /> API V4</span>}
+              {question.id && !question.id.toString().startsWith('q') ? (
+                  <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-1 flex items-center gap-1 rounded shadow-sm"><Loader2 className="w-3 h-3" /> Nuvem API</span>
+              ) : (
+                  <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-1 flex items-center gap-1 rounded shadow-sm">Modo de Segurança Local</span>
+              )}
           </div>
         </div>
         <div className="p-6 flex-1 flex flex-col">
