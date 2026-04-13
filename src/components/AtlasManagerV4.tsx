@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ServerCrash, Loader2, Plus, Trash2, Edit, RefreshCw, X, BarChart } from 'lucide-react';
 import { atlasData } from '../data/mockData';
+import { quizQuestions } from '../data/quizData';
 import { getApiBase } from '../services/api';
 
 interface ClinicalCase {
@@ -39,17 +40,19 @@ export function AtlasManagerV4() {
   };
 
   const handleMigrate = async () => {
-    if (!confirm('Isso fará o upload de todas as imagens antigas para o Cloudinary e criará registros na V4. Demora alguns minutos. Executar?')) return;
+    if (!confirm('Isso enviará TUDO (Atlas + Quiz antigos) para o sistema V4. Continuar?')) return;
     setIsMigrating(true);
     let count = 0;
     try {
       const apiBase = getApiBase();
+      
+      // 1. MIGRAR ATLAS
       for (const item of atlasData) {
         const finalUrls = [];
         for (let i = 0; i < item.images.length; i++) {
           let imgData = item.images[i];
           if (imgData.startsWith('data:')) {
-            const file = dataURLtoFile(imgData, `migrate_${item.id}_${i}.jpg`);
+            const file = dataURLtoFile(imgData, `migrate_atlas_${item.id}_${i}.jpg`);
             if (file) {
               const fd = new FormData();
               fd.append('file', file);
@@ -78,7 +81,41 @@ export function AtlasManagerV4() {
         });
         if (caseRes.ok) count++;
       }
-      alert(`Migração concluída! ${count} casos inseridos na V4.`);
+
+      // 2. MIGRAR QUIZ
+      for (const qItem of quizQuestions) {
+         let imgUrl = qItem.image;
+         if (imgUrl.startsWith('data:')) {
+            const file = dataURLtoFile(imgUrl, `migrate_quiz_${qItem.id}.jpg`);
+            if (file) {
+               const fd = new FormData();
+               fd.append('file', file);
+               const upRes = await fetch(`${apiBase}/api/cms/upload`, { method: 'POST', body: fd });
+               const upData = await upRes.json();
+               if(upData.success) imgUrl = upData.url;
+            }
+         }
+         const diagText = qItem.options[qItem.correctOptionIndex]?.split(' - ')[0] || "Diagnóstico Oculto (Quiz)";
+         const titleRef = `[Quiz Legado] ${diagText.substring(0, 30)}`;
+
+         const payload2 = {
+            title: titleRef,
+            clinical_history: qItem.clinicalCase + `\n\n[Resposta Oficial]: ` + qItem.explanation,
+            primary_diagnosis: diagText,
+            taxonomies: ['quiz_only'],
+            media_urls: [imgUrl],
+            svg_json: '[]'
+         };
+         
+         const qRes = await fetch(`${apiBase}/api/cms/cases`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload2),
+         });
+         if (qRes.ok) count++;
+      }
+
+      alert(`Migração concluída! ${count} casos (Atlas + Quiz) inseridos na V4.`);
       fetchCases();
     } catch (e) {
       alert('Erro na migração: ' + e);
